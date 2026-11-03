@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unas Cuantas Noches con Roger</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="stage">
+
+  <!-- MENÚ -->
+  <section id="screen-menu" class="screen active">
+    <h1 id="menu-title"></h1>
+    <p class="subtitle">Una noche. Una parroquia. Tres cosas que no deberían moverse.</p>
+    <button id="btn-start" class="btn big">Comenzar la noche</button>
+    <p class="hint">Ratón: mirar alrededor · Espacio: monitor · 1–5: cámaras</p>
+  </section>
+
+  <!-- JUEGO -->
+  <section id="screen-game" class="screen">
+    <div id="office-view">
+      <div id="office-world">
+        <div class="bg-placeholder office-ph">
+          <div class="ph-window"></div><div class="ph-door"></div><div class="ph-desk"></div>
+          <span class="ph-label">OFICINA</span>
+        </div>
+        <img id="office-img" alt="">
+        <div id="layer-office" class="char-layer"></div>
+      </div>
+    </div>
+
+    <div id="hud-top">
+      <div id="clock">12 AM</div>
+      <div id="night">Noche 1</div>
+      <div id="power-box"><span>Energía</span><div class="bar"><i id="power-fill"></i></div><b id="power-txt">100%</b></div>
+    </div>
+
+    <div id="tools-bar"></div>
+    <button id="monitor-toggle" class="btn">▲ Abrir monitor</button>
+
+    <div id="monitor">
+      <div id="cam-feed">
+        <div id="cam-rooms"></div>
+        <div class="noise"></div>
+        <div id="cam-name"></div>
+        <div id="rec"><i></i>REC</div>
+        <div id="cam-flicker"></div>
+      </div>
+      <div id="cam-buttons"></div>
+    </div>
+
+    <div id="debug-panel" hidden>
+      <b>DEBUG</b>
+      <button data-act="win">Forzar 6 AM</button>
+      <button data-act="lose">Forzar derrota</button>
+      <button data-act="x10">Velocidad ×10</button>
+    </div>
+  </section>
+
+  <!-- FINAL -->
+  <section id="screen-end" class="screen">
+    <h2 id="end-title"></h2>
+    <p id="end-text"></p>
+    <button id="btn-retry" class="btn big">Volver al menú</button>
+  </section>
+
+</div>
+<script src="config.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
