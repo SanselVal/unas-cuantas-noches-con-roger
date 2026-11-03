@@ -1,6 +1,6 @@
 /* ============================================================
    game.js — Etapa 1 Refinada: estructura, reloj, oficina, cámaras,
-   capas de animatrónicos y control de electricidad.
+   capas de animatrónicos y control de electricidad sin batería.
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -28,8 +28,8 @@ const Game = {
 
   freshState() {
     return {
-      elapsed: 0,                 // Segundos de juego transcurridos
-      hourIndex: 0,               // 0..5
+      elapsed: 0,
+      hourIndex: 0,
       electricityOn: CONFIG.electricity.defaultOn,
       monitorOpen: false,
       camera: 0,
@@ -57,6 +57,7 @@ const Game = {
 
   start() {
     this.state = this.freshState();
+    UI.resetCharacterSprites();
     this.modules.forEach(m => m.reset && m.reset(this));
     UI.setMonitor(false);
     UI.setCamera(0, true);
@@ -121,7 +122,7 @@ const UI = {
     $("#office-world").style.width = CONFIG.office.worldWidth + "px";
     loadOptionalImage($("#office-img"), CONFIG.office.image);
 
-    // Preparar sprites de personajes en la oficina
+    // Sprites de oficina
     const officeLayer = $("#layer-office");
     this.setupCharacterSprites(officeLayer, "office");
 
@@ -129,6 +130,10 @@ const UI = {
 
     // Cámaras
     const feed = $("#cam-rooms"), btns = $("#cam-buttons");
+    feed.innerHTML = "";
+    btns.innerHTML = "";
+    this.rooms = [];
+
     CONFIG.cameras.forEach((c, i) => {
       const room = document.createElement("div");
       room.className = "cam-room";
@@ -146,7 +151,6 @@ const UI = {
       feed.appendChild(room);
       this.rooms.push(room);
 
-      // Preparar sprites de personajes en esta cámara
       const camLayer = room.querySelector(".char-layer");
       this.setupCharacterSprites(camLayer, c.id);
 
@@ -158,10 +162,8 @@ const UI = {
       btns.appendChild(b);
     });
 
-    // Bar de herramientas
     this.buildToolsUI();
 
-    // Entrada de usuario
     $("#btn-start").onclick = () => Game.start();
     $("#btn-retry").onclick = () => UI.show("menu");
     $("#monitor-toggle").onclick = () => this.setMonitor(!Game.state.monitorOpen);
@@ -174,8 +176,10 @@ const UI = {
       }
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= CONFIG.cameras.length) {
-        this.setMonitor(true);
-        this.setCamera(n - 1);
+        if (Game.state.electricityOn) {
+          this.setMonitor(true);
+          this.setCamera(n - 1);
+        }
       }
     });
 
@@ -185,7 +189,6 @@ const UI = {
       this.targetX = -(CONFIG.office.worldWidth - CONFIG.resolution.w) * ratio;
     });
 
-    // Depuración
     const dbg = $("#debug-panel");
     if (CONFIG.debug.enabled) {
       dbg.hidden = false;
@@ -217,23 +220,33 @@ const UI = {
     const posConfig = CONFIG.characterPositions[locationId] || {};
 
     Object.keys(chars).forEach(charId => {
-      const img = document.createElement("img");
-      img.className = `char-sprite char-${charId}`;
-      img.alt = chars[charId].name;
-      img.src = chars[charId].image;
-
+      let img = container.querySelector(`.char-${charId}`);
+      if (!img) {
+        img = document.createElement("img");
+        img.className = `char-sprite char-${charId}`;
+        img.alt = chars[charId].name;
+        img.src = chars[charId].image;
+        container.appendChild(img);
+      }
       const pos = posConfig[charId] || { x: 50, y: 50, scale: 1.0, visible: false };
       img.style.left = pos.x + "%";
       img.style.top = pos.y + "%";
       img.style.transform = `translate(-50%, -50%) scale(${pos.scale})`;
-
-      if (pos.visible) img.classList.add("visible");
-      container.appendChild(img);
+      img.classList.toggle("visible", Boolean(pos.visible));
     });
   },
 
-  // API para posicionar/mostrar/ocultar animatrónicos en runtime
-  setCharacterPosition(locationId, charId, { x, y, scale, visible }) {
+  resetCharacterSprites() {
+    this.setupCharacterSprites($("#layer-office"), "office");
+    CONFIG.cameras.forEach((c, i) => {
+      if (this.rooms[i]) {
+        const camLayer = this.rooms[i].querySelector(".char-layer");
+        this.setupCharacterSprites(camLayer, c.id);
+      }
+    });
+  },
+
+  setCharacterPosition(locationId, charId, pos = {}) {
     let container;
     if (locationId === "office") {
       container = $("#layer-office");
@@ -246,10 +259,10 @@ const UI = {
     const sprite = container.querySelector(`.char-${charId}`);
     if (!sprite) return;
 
-    if (x !== undefined) sprite.style.left = x + "%";
-    if (y !== undefined) sprite.style.top = y + "%";
-    if (scale !== undefined) sprite.style.transform = `translate(-50%, -50%) scale(${scale})`;
-    if (visible !== undefined) sprite.classList.toggle("visible", Boolean(visible));
+    if (pos.x !== undefined) sprite.style.left = pos.x + "%";
+    if (pos.y !== undefined) sprite.style.top = pos.y + "%";
+    if (pos.scale !== undefined) sprite.style.transform = `translate(-50%, -50%) scale(${pos.scale})`;
+    if (pos.visible !== undefined) sprite.classList.toggle("visible", Boolean(pos.visible));
   },
 
   buildToolsUI() {
@@ -288,9 +301,12 @@ const UI = {
     box.className = isOn ? "on" : "off";
     status.textContent = isOn ? "ON" : "OFF";
 
-    // Si las cámaras dependen de la electricidad en el monitor:
     const feed = $("#cam-feed");
-    feed.style.opacity = isOn ? "1" : "0.15";
+    feed.classList.toggle("offline", !isOn);
+
+    const camBtns = document.querySelectorAll("#cam-buttons .btn");
+    camBtns.forEach(btn => btn.disabled = !isOn);
+
     this.refreshToolsUI();
   },
 
@@ -306,6 +322,7 @@ const UI = {
   },
 
   setCamera(i, silent) {
+    if (!Game.state.electricityOn) return;
     Game.state.camera = i;
     this.rooms.forEach((r, k) => r.classList.toggle("active", k === i));
     document.querySelectorAll("#cam-buttons .btn").forEach((b, k) => b.classList.toggle("active", k === i));

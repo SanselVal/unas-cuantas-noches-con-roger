@@ -1,27 +1,23 @@
 /* ============================================================
-   config.js — Configuración general del proyecto y coordenadas
+   config.js — Configuración general y posicionamiento
    ============================================================ */
 const CONFIG = {
   title: "Unas Cuantas Noches con Roger",
 
-  // Resolución de referencia
   resolution: { w: 1280, h: 720 },
 
-  // Noche única: 6 minutos reales = 12 AM → 6 AM
   night: {
     realSeconds: 360,
-    startHour: 12,   // 12 AM
-    hoursTotal: 6,   // 12,1,2,3,4,5 -> 6 AM = victoria
+    startHour: 12,
+    hoursTotal: 6,
   },
 
-  // Oficina
   office: {
-    worldWidth: 1760,   // Ancho del fondo de la oficina
+    worldWidth: 1760,
     panSmoothing: 0.12,
     image: "assets/rooms/office.jpg",
   },
 
-  // Cámaras de vigilancia
   cameras: [
     { id: "CAM 01", name: "Patio",              image: "assets/rooms/cam01_patio.jpg",              w: 2576, h: 1450, hue: 215 },
     { id: "CAM 02", name: "Escaleras",          image: "assets/rooms/cam02_escaleras.jpg",          w: 2576, h: 1404, hue: 30  },
@@ -33,25 +29,22 @@ const CONFIG = {
   monitor: { imageBrightness: 1.3 },
   cameraSwitchFlickerMs: 220,
 
-  // Sistema de electricidad (ON/OFF sin batería ni consumo)
   electricity: {
     defaultOn: true
   },
 
-  // Rutas de imágenes de personajes
   characters: {
     roger: { name: "Roger", image: "assets/characters/roger.png" },
     john:  { name: "John",  image: "assets/characters/john.png"  },
     meaty: { name: "Meaty", image: "assets/characters/meaty.png" },
   },
 
-  // Coordenadas configurables de aparición (en % de ancho y alto de cada escenario)
-  // Permite ajustar posición (x, y) en % y escala (scale: 1.0 = 100%)
+  // Coordenadas iniciales por escenario (% X, % Y, escala, visibilidad)
   characterPositions: {
     office: {
       roger: { x: 50, y: 50, scale: 1.0, visible: false },
-      john:  { x: 18, y: 35, scale: 0.9, visible: false }, // Ventana izquierda
-      meaty: { x: 75, y: 60, scale: 1.0, visible: false }, // Esquina derecha
+      john:  { x: 18, y: 35, scale: 0.9, visible: false },
+      meaty: { x: 75, y: 60, scale: 1.0, visible: false },
     },
     "CAM 01": {
       roger: { x: 45, y: 55, scale: 0.75, visible: false },
@@ -80,13 +73,11 @@ const CONFIG = {
     }
   },
 
-  // Herramientas de la interfaz
   tools: [
     { id: "guitar", label: "Guitarra",        owner: "roger", enabled: false, active: false },
     { id: "power",  label: "Electricidad",    owner: "john",  enabled: true,  active: true  },
     { id: "meaty",  label: "Reparar a Meaty", owner: "meaty", enabled: false, active: false },
   ],
 
-  // Depuración
   debug: { enabled: true, timeScale: 1 },
 };

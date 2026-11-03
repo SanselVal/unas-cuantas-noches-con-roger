@@ -57,7 +57,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #clock{font-size:44px;color:var(--candle);min-width:140px}
 #night{font-size:20px;color:var(--dim);padding-top:14px}
 
-/* INTERRUPTOR DE ELECTRICIDAD (ON / OFF) */
+/* INTERRUPTOR DE ELECTRICIDAD */
 #power-box{display:flex;align-items:center;gap:10px;font-size:16px;padding-top:12px}
 #power-status{
   font-family:var(--mono);
@@ -85,10 +85,26 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #tools-bar small{display:block;color:var(--dim);font-size:12px}
 #monitor-toggle{position:absolute;right:24px;bottom:20px;z-index:40}
 
-/* MONITOR */
+/* MONITOR Y ESTADO OFFLINE POR CORTE ELÉCTRICO */
 #monitor{position:absolute;inset:0;z-index:30;background:#050706;display:flex;flex-direction:column;padding:70px 90px 80px;gap:14px;transform:translateY(100%);transition:transform .22s ease-out;pointer-events:none}
 #monitor.open{transform:translateY(0);pointer-events:auto}
 #cam-feed{container-type:size;position:relative;flex:1;border:3px solid #2a2f2c;overflow:hidden;background:#000;filter:saturate(.7) contrast(1.05)}
+#cam-feed.offline #cam-rooms{display:none !important}
+#cam-feed-offline-msg{
+  display:none;
+  position:absolute;
+  inset:0;
+  background:#050505;
+  color:var(--alert);
+  font-family:var(--mono);
+  font-size:24px;
+  align-items:center;
+  justify-content:center;
+  letter-spacing:2px;
+  z-index:15;
+}
+#cam-feed.offline #cam-feed-offline-msg{display:flex}
+
 #cam-rooms,.cam-room{position:absolute;inset:0}
 .cam-room{display:none;overflow:hidden}
 .cam-room.active{display:flex;align-items:center;justify-content:center}
