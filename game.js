@@ -1,5 +1,6 @@
 /* ============================================================
-   game.js — Etapa 2: Implementación validada de Roger
+   game.js — Etapa 3: Implementación de John, mecánica de oscuridad,
+   retroalimentación visual y compatibilidad para Meaty.
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -19,10 +20,28 @@ const AudioSystem = {
   },
   stopGuitar() {
     console.log("[AUDIO HOOK] Guitarra desactivada por Roger.");
+  },
+  johnDistantSteps() {
+    console.log("[AUDIO HOOK] John: Pasos lejanos retumban...");
+  },
+  johnApproaching() {
+    console.log("[AUDIO HOOK] John: Pasos pesados aproximándose a la oficina...");
+  },
+  johnAtWindow() {
+    console.log("[AUDIO HOOK] John: Estructura metálica llega a la ventana de la oficina.");
+  },
+  johnSearching() {
+    console.log("[AUDIO HOOK] John: Búsqueda activa en la penumbra...");
+  },
+  johnRetreating() {
+    console.log("[AUDIO HOOK] John: Pasos pesados alejándose de la ventana...");
+  },
+  johnSafe() {
+    console.log("[AUDIO HOOK] John: Sonido metálico lejano. Zona segura.");
   }
 };
 
-/* ---------- Algoritmo de Búsqueda de Rutas (BFS) ---------- */
+/* ---------- Algoritmo BFS de Búsqueda de Rutas ---------- */
 function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []) {
   if (currentRoom === targetRoom) return currentRoom;
   
@@ -48,6 +67,16 @@ function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []
 
   return currentRoom;
 }
+
+/* ---------- Interfaz de Comunicación de Módulos (John / Meaty) ---------- */
+const ModuleBridge = {
+  onJohnEnteredRoom(room) {
+    // Se ejecutará cuando Meaty esté implementado en la Etapa 4
+    if (window.MeatyModule && typeof window.MeatyModule.checkJohnDestruction === "function") {
+      window.MeatyModule.checkJohnDestruction(room);
+    }
+  }
+};
 
 /* ---------- Núcleo del Juego ---------- */
 const Game = {
@@ -126,6 +155,11 @@ const Game = {
     this.state.electricityOn = Boolean(onState);
     this.state.tools.power.active = this.state.electricityOn;
     UI.refreshElectricityUI();
+
+    // Notificar a John el cambio de luz
+    if (window.JohnModule) {
+      window.JohnModule.onElectricityChanged(this.state.electricityOn, this);
+    }
   },
 
   toggleElectricity() {
@@ -202,7 +236,7 @@ const UI = {
     $("#monitor-toggle").onclick = () => this.setMonitor(!Game.state.monitorOpen);
 
     $("#btn-guitar-cam5").onclick = () => {
-      if (RogerModule) RogerModule.activateGuitar();
+      if (window.RogerModule) window.RogerModule.activateGuitar();
     };
 
     addEventListener("keydown", e => {
@@ -243,10 +277,16 @@ const UI = {
           Game.toggleElectricity();
         }
         if (a === "force-roger-step") {
-          if (RogerModule) RogerModule.step(Game);
+          if (window.RogerModule) window.RogerModule.step(Game);
         }
         if (a === "reset-roger") {
-          if (RogerModule) RogerModule.reset(Game);
+          if (window.RogerModule) window.RogerModule.reset(Game);
+        }
+        if (a === "force-john-step") {
+          if (window.JohnModule) window.JohnModule.step(Game);
+        }
+        if (a === "reset-john") {
+          if (window.JohnModule) window.JohnModule.reset(Game);
         }
       };
     }
@@ -344,11 +384,11 @@ const UI = {
 
   refreshGuitarUI() {
     const gBtn = $("#btn-guitar-cam5");
-    if (!gBtn || !RogerModule) return;
+    if (!gBtn || !window.RogerModule) return;
 
     const isCam5 = Game.state && CONFIG.cameras[Game.state.camera]?.id === "CAM 05";
-    const state = RogerModule.guitarState;
-    const cooldown = Math.ceil(RogerModule.guitarCooldownTimer);
+    const state = window.RogerModule.guitarState;
+    const cooldown = Math.ceil(window.RogerModule.guitarCooldownTimer);
 
     if (isCam5 && Game.state.electricityOn) {
       gBtn.style.display = "block";
@@ -382,6 +422,9 @@ const UI = {
     box.className = isOn ? "on" : "off";
     status.textContent = isOn ? "ON" : "OFF";
 
+    const officeWorld = $("#office-world");
+    if (officeWorld) officeWorld.classList.toggle("darkness", !isOn);
+
     const feed = $("#cam-feed");
     feed.classList.toggle("offline", !isOn);
 
@@ -390,6 +433,27 @@ const UI = {
 
     this.refreshGuitarUI();
     this.refreshToolsUI();
+  },
+
+  showJohnBanner(mode, text = "") {
+    const banner = $("#john-status-banner");
+    if (!banner) return;
+    banner.className = "";
+    if (mode === "SEARCHING") {
+      banner.classList.add("searching");
+      banner.textContent = text || "¡ALERTA: ALGUIEN EN LA VENTANA — APAGA LA LUZ!";
+    } else if (mode === "RETREATING") {
+      banner.classList.add("retreating");
+      banner.textContent = text || "JOHN SE ESTÁ RETIRANDO... MANTÉN LA LUZ APAGADA";
+    } else if (mode === "SAFE") {
+      banner.classList.add("safe");
+      banner.textContent = text || "ZONA SEGURA — PUEDES ENCENDER LA LUZ";
+      setTimeout(() => {
+        if (banner.classList.contains("safe")) banner.style.display = "none";
+      }, 3500);
+    } else {
+      banner.style.display = "none";
+    }
   },
 
   show(name) {
@@ -424,11 +488,19 @@ const UI = {
     $("#clock").textContent = hourLabel((CONFIG.night.startHour + s.hourIndex) % 12);
   },
 
-  updateDebugRoger() {
-    const dbgText = $("#debug-roger-info");
-    if (!dbgText || !RogerModule) return;
-    const cd = RogerModule.guitarCooldownTimer > 0 ? ` (${RogerModule.guitarCooldownTimer.toFixed(1)}s)` : "";
-    dbgText.textContent = `Roger: ${RogerModule.currentLocation} | Estado: ${RogerModule.getMovementStateText()} | Guitarra: ${RogerModule.guitarState}${cd}`;
+  updateDebugPanels() {
+    const rogerDbg = $("#debug-roger-info");
+    if (rogerDbg && window.RogerModule) {
+      const cd = window.RogerModule.guitarCooldownTimer > 0 ? ` (${window.RogerModule.guitarCooldownTimer.toFixed(1)}s)` : "";
+      rogerDbg.textContent = `Roger: ${window.RogerModule.currentLocation} | Estado: ${window.RogerModule.getMovementStateText()} | Guitarra: ${window.RogerModule.guitarState}${cd}`;
+    }
+
+    const johnDbg = $("#debug-john-info");
+    if (johnDbg && window.JohnModule) {
+      const j = window.JohnModule;
+      const t = j.stateTimer > 0 ? ` (${j.stateTimer.toFixed(1)}s)` : "";
+      johnDbg.textContent = `John: ${j.currentLocation} | Estado: ${j.state} ${t} | Zona Peligrosa: ${j.inDangerZone ? "SÍ" : "NO"}`;
+    }
   },
 
   roomLayer(camIndex) { return this.rooms[camIndex].querySelector(".char-layer"); },
@@ -466,7 +538,7 @@ const RogerModule = {
     this.resetState();
     this.updateVisuals();
     UI.refreshGuitarUI();
-    UI.updateDebugRoger();
+    UI.updateDebugPanels();
   },
 
   update(dt, game) {
@@ -479,7 +551,7 @@ const RogerModule = {
         this.guitarState = "READY";
         UI.refreshGuitarUI();
       }
-      UI.updateDebugRoger();
+      UI.updateDebugPanels();
     }
 
     this.timer += dt;
@@ -494,7 +566,7 @@ const RogerModule = {
     this.guitarState = "PLAYING";
     AudioSystem.playGuitar();
     UI.refreshGuitarUI();
-    UI.updateDebugRoger();
+    UI.updateDebugPanels();
     return true;
   },
 
@@ -513,13 +585,12 @@ const RogerModule = {
   step(game) {
     if (game.state.over) return;
 
-    // Caso de borde: si ya está en CAM 05 y la guitarra está sonando, la apaga inmediatamente
     if (this.currentLocation === "CAM 05" && this.guitarState === "PLAYING") {
       this.guitarState = "COOLDOWN";
       this.guitarCooldownTimer = CONFIG.roger.guitarCooldownDuration;
       AudioSystem.stopGuitar();
       UI.refreshGuitarUI();
-      UI.updateDebugRoger();
+      UI.updateDebugPanels();
       return;
     }
 
@@ -542,7 +613,7 @@ const RogerModule = {
         game.lose("Roger ha entrado en la oficina.");
       }
 
-      UI.updateDebugRoger();
+      UI.updateDebugPanels();
     }
   },
 
@@ -563,8 +634,175 @@ const RogerModule = {
   }
 };
 
+/* ---------- Módulo de John ---------- */
+const JohnModule = {
+  name: "john",
+  currentLocation: "CAM 02",
+  state: "MOVING", // "MOVING", "AT_WINDOW", "SEARCHING", "RETREATING"
+  timer: 0,
+  stateTimer: 0,
+  inDangerZone: false,
+
+  init(game) {
+    this.resetState();
+  },
+
+  resetState() {
+    this.currentLocation = CONFIG.john.startLocation;
+    this.state = "MOVING";
+    this.timer = 0;
+    this.stateTimer = 0;
+    this.inDangerZone = false;
+  },
+
+  reset(game) {
+    UI.setCharacterPosition("office", "john", { visible: false });
+    CONFIG.cameras.forEach(c => UI.setCharacterPosition(c.id, "john", { visible: false }));
+
+    this.resetState();
+    this.updateVisuals();
+    UI.showJohnBanner("NONE");
+    UI.updateDebugPanels();
+  },
+
+  update(dt, game) {
+    if (game.state.over) return;
+
+    if (this.state === "MOVING") {
+      this.timer += dt;
+      if (this.timer >= CONFIG.john.moveInterval) {
+        this.timer = 0;
+        this.evaluateMovement(game);
+      }
+    } else if (this.state === "AT_WINDOW" || this.state === "SEARCHING") {
+      this.stateTimer += dt;
+      
+      // Si la luz sigue encendida tras el margen de gracia, John detecta al jugador y ataca
+      if (game.state.electricityOn) {
+        if (this.stateTimer >= CONFIG.john.detectionGraceTime) {
+          game.lose("John te detectó desde la ventana de la oficina.");
+          return;
+        }
+      } else {
+        // Con luz apagada, realiza la fase de búsqueda nocturna
+        if (this.state !== "SEARCHING") {
+          this.state = "SEARCHING";
+          AudioSystem.johnSearching();
+          UI.showJohnBanner("SEARCHING");
+        }
+        
+        if (this.stateTimer >= CONFIG.john.searchDuration) {
+          this.startRetreat(game);
+        }
+      }
+      UI.updateDebugPanels();
+    } else if (this.state === "RETREATING") {
+      this.stateTimer -= dt;
+      if (this.stateTimer <= 0) {
+        this.finishRetreat(game);
+      }
+      UI.updateDebugPanels();
+    }
+  },
+
+  evaluateMovement(game) {
+    if (game.state.over) return;
+
+    const currentCamId = CONFIG.cameras[game.state.camera]?.id;
+    const isWatched = game.state.monitorOpen && (currentCamId === this.currentLocation);
+    const prob = isWatched ? CONFIG.john.watchedProbability : CONFIG.john.unwatchedProbability;
+
+    if (Math.random() < prob) {
+      this.step(game);
+    }
+  },
+
+  step(game) {
+    if (game.state.over || this.state !== "MOVING") return;
+
+    const targetRoom = "office";
+    const nextRoom = getNextStepTowards(this.currentLocation, targetRoom, CONFIG.mapGraph, []);
+
+    if (nextRoom && nextRoom !== this.currentLocation) {
+      UI.setCharacterPosition(this.currentLocation, "john", { visible: false });
+      this.currentLocation = nextRoom;
+      this.updateVisuals();
+
+      // Notificar a la interfaz de comunicación para Meaty
+      ModuleBridge.onJohnEnteredRoom(this.currentLocation);
+
+      if (this.currentLocation === "office") {
+        this.reachWindow(game);
+      } else {
+        AudioSystem.johnApproaching();
+      }
+
+      UI.updateDebugPanels();
+    }
+  },
+
+  reachWindow(game) {
+    this.state = "AT_WINDOW";
+    this.stateTimer = 0;
+    this.inDangerZone = true;
+    AudioSystem.johnAtWindow();
+
+    if (game.state.electricityOn) {
+      UI.showJohnBanner("SEARCHING", "¡ALERTA: JOHN ESTÁ EN LA VENTANA — APAGA LA LUZ!");
+    } else {
+      this.state = "SEARCHING";
+      AudioSystem.johnSearching();
+      UI.showJohnBanner("SEARCHING");
+    }
+  },
+
+  startRetreat(game) {
+    this.state = "RETREATING";
+    this.stateTimer = CONFIG.john.retreatTime;
+    AudioSystem.johnRetreating();
+    UI.showJohnBanner("RETREATING");
+  },
+
+  finishRetreat(game) {
+    this.inDangerZone = false;
+    UI.setCharacterPosition("office", "john", { visible: false });
+    
+    // John se retira mediante el grafo (regresa a CAM 03)
+    this.currentLocation = "CAM 03";
+    this.state = "MOVING";
+    this.timer = 0;
+    this.updateVisuals();
+    
+    AudioSystem.johnSafe();
+    UI.showJohnBanner("SAFE");
+    UI.updateDebugPanels();
+  },
+
+  onElectricityChanged(isOn, game) {
+    if (game.state.over) return;
+
+    // Si el jugador enciende la luz mientras John sigue en la zona peligrosa, pierde de inmediato
+    if (isOn && this.inDangerZone) {
+      game.lose("Encendiste la luz mientras John aún no se había retirado de la zona peligrosa.");
+    }
+  },
+
+  updateVisuals() {
+    const posConfig = CONFIG.characterPositions[this.currentLocation]?.john || { x: 50, y: 50, scale: 1.0 };
+    UI.setCharacterPosition(this.currentLocation, "john", {
+      x: posConfig.x,
+      y: posConfig.y,
+      scale: posConfig.scale,
+      visible: true
+    });
+  }
+};
+
+window.RogerModule = RogerModule;
+window.JohnModule = JohnModule;
+
 Game.register(RogerModule);
-Game.register({ name: "john"  });
+Game.register(JohnModule);
 Game.register({ name: "meaty" });
 
 window.addEventListener("DOMContentLoaded", () => Game.init());

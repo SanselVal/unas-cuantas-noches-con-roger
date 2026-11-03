@@ -1,5 +1,5 @@
 /* ============================================================
-   config.js — Configuración general, mapa de conexiones y Roger
+   config.js — Configuración general, grafos, Roger y John
    ============================================================ */
 const CONFIG = {
   title: "Unas Cuantas Noches con Roger",
@@ -49,25 +49,37 @@ const CONFIG = {
     "office": ["CAM 03", "CAM 04"]
   },
 
-  // Habitaciones bloqueadas por otros animatrónicos (preparado para Meaty en Etapa 4)
   blockedRooms: [],
 
   // Configuración de Roger
   roger: {
     enabled: true,
     startLocation: "CAM 01",
-    moveInterval: 5.0,            // Intervalo de comprobación en segundos
-    baseProbability: 0.15,        // Probabilidad base (3/20)
-    watchedProbability: 0.05,     // Menor probabilidad si el jugador está observando su cámara activa
-    unwatchedProbability: 0.25,   // Mayor probabilidad cuando no está siendo vigilado
-    guitarCooldownDuration: 15.0, // Tiempo de enfriamiento de la guitarra en segundos
+    moveInterval: 5.0,
+    baseProbability: 0.15,
+    watchedProbability: 0.05,
+    unwatchedProbability: 0.25,
+    guitarCooldownDuration: 15.0,
+  },
+
+  // Configuración de John
+  john: {
+    enabled: true,
+    startLocation: "CAM 02",
+    moveInterval: 4.0,           // Intervalo de decisión de movimiento
+    baseProbability: 0.20,       // Probabilidad base
+    watchedProbability: 0.08,    // Menor probabilidad si la cámara actual lo observa
+    unwatchedProbability: 0.35,  // Mayor probabilidad cuando no es vigilado
+    searchDuration: 8.0,         // Tiempo que busca en la ventana con luz apagada
+    detectionGraceTime: 1.5,     // Tiempo antes de atacar si la luz se mantiene encendida
+    retreatTime: 5.0,            // Tiempo que tarda en completar su retirada peligrosa
   },
 
   // Coordenadas de apariciones (% X, % Y, escala, visibilidad)
   characterPositions: {
     office: {
       roger: { x: 50, y: 50, scale: 1.0, visible: false },
-      john:  { x: 18, y: 35, scale: 0.9, visible: false },
+      john:  { x: 18, y: 35, scale: 0.9, visible: false }, // Posición en la ventana
       meaty: { x: 75, y: 60, scale: 1.0, visible: false },
     },
     "CAM 01": {

@@ -30,7 +30,8 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 
 /* OFICINA */
 #office-view{position:absolute;inset:0;overflow:hidden}
-#office-world{position:absolute;left:0;top:0;height:720px;will-change:transform}
+#office-world{position:absolute;left:0;top:0;height:720px;will-change:transform;transition:filter .3s ease}
+#office-world.darkness{filter:brightness(0.08) contrast(1.2)}
 #office-world>img,#office-world .bg-placeholder{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #office-img{display:none}
 .bg-placeholder{background:linear-gradient(#1c1712,#0e0b09);overflow:hidden}
@@ -51,6 +52,43 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
   display:none;
 }
 .char-sprite.visible{display:block}
+
+/* INDICADORES VISUALES DISCRETOS DE JOHN */
+#john-status-banner{
+  position:absolute;
+  left:50%;
+  top:24px;
+  transform:translateX(-50%);
+  z-index:25;
+  font-family:var(--mono);
+  font-size:14px;
+  padding:6px 16px;
+  border-radius:4px;
+  pointer-events:none;
+  display:none;
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  box-shadow:0 0 10px rgba(0,0,0,.8);
+}
+#john-status-banner.searching{
+  display:block;
+  background:rgba(192,65,45,.85);
+  color:#fff;
+  border:1px solid var(--alert);
+  animation:blink 1.2s infinite;
+}
+#john-status-banner.retreating{
+  display:block;
+  background:rgba(240,180,76,.85);
+  color:#14110f;
+  border:1px solid var(--candle);
+}
+#john-status-banner.safe{
+  display:block;
+  background:rgba(47,93,80,.85);
+  color:#a3eed6;
+  border:1px solid var(--glass);
+}
 
 /* HUD */
 #hud-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:16px 24px;pointer-events:none;z-index:20;text-shadow:0 2px 6px #000}
@@ -152,7 +190,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 }
 
 /* DEBUG */
-#debug-panel{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#000d;border:1px dashed var(--dim);padding:8px 12px;font-family:var(--mono);font-size:12px;max-width:90%}
+#debug-panel{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#000d;border:1px dashed var(--dim);padding:8px 12px;font-family:var(--mono);font-size:12px;max-width:95%}
 #debug-panel button{font-family:var(--mono);font-size:12px;background:#111;color:var(--wax);border:1px solid var(--dim);padding:3px 8px;cursor:pointer}
-#debug-roger-info{color:var(--candle);font-weight:bold;width:100%;text-align:center;margin:4px 0}
+.debug-info-line{color:var(--candle);font-weight:bold;width:100%;text-align:center;margin:2px 0}
 @media (prefers-reduced-motion:reduce){#monitor{transition:none}.noise,#rec i,#cam-flicker.on{animation:none}}
