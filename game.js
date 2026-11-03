@@ -1,6 +1,6 @@
 /* ============================================================
-   game.js — Etapa 1 Refinada: estructura, reloj, oficina, cámaras,
-   capas de animatrónicos y control de electricidad sin batería.
+   game.js — Etapa 2: Implementación completa del animatrónico Roger,
+   navegación por grafos, sistema de guitarra y panel de depuración.
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -13,7 +13,45 @@ function loadOptionalImage(img, src, onOk) {
 }
 function hourLabel(h) { return (h === 0 ? 12 : h) + " AM"; }
 
-/* ---------- Núcleo ---------- */
+/* ---------- Hooks de Audio ---------- */
+const AudioSystem = {
+  playGuitar() {
+    console.log("[AUDIO HOOK] Guitarra activada. Sonido en reproducción...");
+  },
+  stopGuitar() {
+    console.log("[AUDIO HOOK] Guitarra desactivada por Roger.");
+  }
+};
+
+/* ---------- Algoritmo de Búsqueda de Rutas (BFS) ---------- */
+function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []) {
+  if (currentRoom === targetRoom) return currentRoom;
+  
+  const queue = [[currentRoom]];
+  const visited = new Set([currentRoom]);
+
+  while (queue.length > 0) {
+    const path = queue.shift();
+    const node = path[path.length - 1];
+
+    if (node === targetRoom) {
+      return path[1]; // Siguiente paso en la ruta óptima
+    }
+
+    const neighbors = mapGraph[node] || [];
+    for (const neighbor of neighbors) {
+      // Regla de compatibilidad futura para Meaty: omitir salas bloqueadas excepto el destino final
+      if (!visited.has(neighbor) && (!blockedRooms.includes(neighbor) || neighbor === targetRoom)) {
+        visited.add(neighbor);
+        queue.push([...path, neighbor]);
+      }
+    }
+  }
+
+  return currentRoom; // Si no hay camino libre disponible, permanece en su sala
+}
+
+/* ---------- Núcleo del Juego ---------- */
 const Game = {
   modules: [],
   state: null,
@@ -36,7 +74,7 @@ const Game = {
       timeScale: CONFIG.debug.timeScale,
       over: false,
       tools: {
-        guitar: { enabled: CONFIG.tools.find(t=>t.id==="guitar")?.enabled || false, active: false },
+        guitar: { enabled: CONFIG.tools.find(t=>t.id==="guitar")?.enabled || true, active: false },
         power:  { enabled: CONFIG.tools.find(t=>t.id==="power")?.enabled || true,   active: true },
         meaty:  { enabled: CONFIG.tools.find(t=>t.id==="meaty")?.enabled || false,  active: false },
       }
@@ -112,23 +150,20 @@ const Game = {
   },
 };
 
-/* ---------- Interfaz ---------- */
+/* ---------- Interfaz de Usuario ---------- */
 const UI = {
   worldX: 0, targetX: 0,
   rooms: [],
 
   build() {
-    // Oficina
     $("#office-world").style.width = CONFIG.office.worldWidth + "px";
     loadOptionalImage($("#office-img"), CONFIG.office.image);
 
-    // Sprites de oficina
     const officeLayer = $("#layer-office");
     this.setupCharacterSprites(officeLayer, "office");
 
     $("#cam-feed").style.setProperty("--cam-brightness", CONFIG.monitor.imageBrightness);
 
-    // Cámaras
     const feed = $("#cam-rooms"), btns = $("#cam-buttons");
     feed.innerHTML = "";
     btns.innerHTML = "";
@@ -168,6 +203,11 @@ const UI = {
     $("#btn-retry").onclick = () => UI.show("menu");
     $("#monitor-toggle").onclick = () => this.setMonitor(!Game.state.monitorOpen);
 
+    // Evento para el botón de la guitarra en CAM 05
+    $("#btn-guitar-cam5").onclick = () => {
+      if (RogerModule) RogerModule.activateGuitar();
+    };
+
     addEventListener("keydown", e => {
       if (!Game.running || Game.state.over) return;
       if (e.code === "Space") {
@@ -204,6 +244,12 @@ const UI = {
         }
         if (a === "toggle-power") {
           Game.toggleElectricity();
+        }
+        if (a === "force-roger-step") {
+          if (RogerModule) RogerModule.step(Game);
+        }
+        if (a === "reset-roger") {
+          if (RogerModule) RogerModule.reset(Game);
         }
       };
     }
@@ -274,6 +320,11 @@ const UI = {
       b.id = "tool-" + t.id;
       b.onclick = () => {
         if (t.id === "power") Game.toggleElectricity();
+        if (t.id === "guitar") {
+          this.setMonitor(true);
+          const cam5Index = CONFIG.cameras.findIndex(c => c.id === "CAM 05");
+          if (cam5Index !== -1) this.setCamera(cam5Index);
+        }
       };
       bar.appendChild(b);
     });
@@ -294,6 +345,39 @@ const UI = {
     });
   },
 
+  refreshGuitarUI() {
+    const gBtn = $("#btn-guitar-cam5");
+    if (!gBtn || !RogerModule) return;
+
+    const isCam5 = Game.state && CONFIG.cameras[Game.state.camera]?.id === "CAM 05";
+    const state = RogerModule.guitarState;
+    const cooldown = Math.ceil(RogerModule.guitarCooldownTimer);
+
+    if (isCam5 && Game.state.electricityOn) {
+      gBtn.style.display = "block";
+      if (state === "READY") {
+        gBtn.disabled = false;
+        gBtn.className = "btn";
+        gBtn.textContent = "Tocar Guitarra";
+      } else if (state === "PLAYING") {
+        gBtn.disabled = true;
+        gBtn.className = "btn playing";
+        gBtn.textContent = "Guitarra Sonando...";
+      } else if (state === "COOLDOWN") {
+        gBtn.disabled = true;
+        gBtn.className = "btn";
+        gBtn.textContent = `Enfriamiento (${cooldown}s)`;
+      }
+    } else {
+      gBtn.style.display = "none";
+    }
+
+    if (Game.state && Game.state.tools.guitar) {
+      Game.state.tools.guitar.active = (state === "PLAYING");
+      this.refreshToolsUI();
+    }
+  },
+
   refreshElectricityUI() {
     const isOn = Game.state ? Game.state.electricityOn : true;
     const box = $("#power-box");
@@ -307,6 +391,7 @@ const UI = {
     const camBtns = document.querySelectorAll("#cam-buttons .btn");
     camBtns.forEach(btn => btn.disabled = !isOn);
 
+    this.refreshGuitarUI();
     this.refreshToolsUI();
   },
 
@@ -319,6 +404,7 @@ const UI = {
     Game.state.monitorOpen = open;
     $("#monitor").classList.toggle("open", open);
     $("#monitor-toggle").textContent = open ? "▼ Cerrar monitor" : "▲ Abrir monitor";
+    this.refreshGuitarUI();
   },
 
   setCamera(i, silent) {
@@ -333,11 +419,19 @@ const UI = {
       void f.offsetWidth;
       f.classList.add("on");
     }
+    this.refreshGuitarUI();
   },
 
   refreshHud() {
     const s = Game.state;
     $("#clock").textContent = hourLabel((CONFIG.night.startHour + s.hourIndex) % 12);
+  },
+
+  updateDebugRoger() {
+    const dbgText = $("#debug-roger-info");
+    if (!dbgText || !RogerModule) return;
+    const cd = RogerModule.guitarCooldownTimer > 0 ? ` (${RogerModule.guitarCooldownTimer.toFixed(1)}s)` : "";
+    dbgText.textContent = `Roger: ${RogerModule.currentLocation} | Estado: ${RogerModule.getMovementStateText()} | Guitarra: ${RogerModule.guitarState}${cd}`;
   },
 
   roomLayer(camIndex) { return this.rooms[camIndex].querySelector(".char-layer"); },
@@ -349,8 +443,131 @@ const UI = {
   },
 };
 
-/* ---------- Módulos de personajes (STUBS) ---------- */
-Game.register({ name: "roger" });
+/* ---------- Módulo de Roger ---------- */
+const RogerModule = {
+  name: "roger",
+  currentLocation: "CAM 01",
+  timer: 0,
+  guitarState: "READY", // "READY", "PLAYING", "COOLDOWN"
+  guitarCooldownTimer: 0,
+
+  init(game) {
+    this.resetState();
+  },
+
+  resetState() {
+    this.currentLocation = CONFIG.roger.startLocation;
+    this.timer = 0;
+    this.guitarState = "READY";
+    this.guitarCooldownTimer = 0;
+  },
+
+  reset(game) {
+    // Ocultar sprite previo en todas las salas
+    UI.setCharacterPosition("office", "roger", { visible: false });
+    CONFIG.cameras.forEach(c => UI.setCharacterPosition(c.id, "roger", { visible: false }));
+
+    this.resetState();
+    this.updateVisuals();
+    UI.refreshGuitarUI();
+    UI.updateDebugRoger();
+  },
+
+  update(dt, game) {
+    if (game.state.over) return;
+
+    // Enfriamiento de la guitarra
+    if (this.guitarState === "COOLDOWN") {
+      this.guitarCooldownTimer -= dt;
+      if (this.guitarCooldownTimer <= 0) {
+        this.guitarCooldownTimer = 0;
+        this.guitarState = "READY";
+        UI.refreshGuitarUI();
+      }
+      UI.updateDebugRoger();
+    }
+
+    // Intervalo de decisión de movimiento
+    this.timer += dt;
+    if (this.timer >= CONFIG.roger.moveInterval) {
+      this.timer = 0;
+      this.evaluateMovement(game);
+    }
+  },
+
+  activateGuitar() {
+    if (this.guitarState !== "READY") return false;
+    this.guitarState = "PLAYING";
+    AudioSystem.playGuitar();
+    UI.refreshGuitarUI();
+    UI.updateDebugRoger();
+    return true;
+  },
+
+  evaluateMovement(game) {
+    if (game.state.over) return;
+
+    // Menor probabilidad si la cámara activa enfoca directamente la sala donde está Roger
+    const currentCamId = CONFIG.cameras[game.state.camera]?.id;
+    const isWatched = game.state.monitorOpen && (currentCamId === this.currentLocation);
+    const prob = isWatched ? CONFIG.roger.watchedProbability : CONFIG.roger.unwatchedProbability;
+
+    if (Math.random() < prob) {
+      this.step(game);
+    }
+  },
+
+  step(game) {
+    if (game.state.over) return;
+
+    // Determinación del objetivo actual
+    const targetRoom = (this.guitarState === "PLAYING") ? "CAM 05" : "office";
+    const nextRoom = getNextStepTowards(this.currentLocation, targetRoom, CONFIG.mapGraph, CONFIG.blockedRooms);
+
+    if (nextRoom && nextRoom !== this.currentLocation) {
+      // Ocultar de la ubicación anterior
+      UI.setCharacterPosition(this.currentLocation, "roger", { visible: false });
+
+      this.currentLocation = nextRoom;
+
+      // Mostrar en la nueva ubicación
+      this.updateVisuals();
+
+      // Si llega a CAM 05 mientras suena la guitarra, la apaga
+      if (this.currentLocation === "CAM 05" && this.guitarState === "PLAYING") {
+        this.guitarState = "COOLDOWN";
+        this.guitarCooldownTimer = CONFIG.roger.guitarCooldownDuration;
+        AudioSystem.stopGuitar();
+        UI.refreshGuitarUI();
+      }
+
+      // Si llega a la oficina, provoca la derrota
+      if (this.currentLocation === "office") {
+        game.lose("Roger ha entrado en la oficina.");
+      }
+
+      UI.updateDebugRoger();
+    }
+  },
+
+  updateVisuals() {
+    const posConfig = CONFIG.characterPositions[this.currentLocation]?.roger || { x: 50, y: 50, scale: 1.0 };
+    UI.setCharacterPosition(this.currentLocation, "roger", {
+      x: posConfig.x,
+      y: posConfig.y,
+      scale: posConfig.scale,
+      visible: true
+    });
+  },
+
+  getMovementStateText() {
+    if (this.currentLocation === "office") return "En Oficina (Derrota)";
+    if (this.guitarState === "PLAYING") return "Atrayéndose hacia CAM 05";
+    return "Avanzando hacia Oficina";
+  }
+};
+
+Game.register(RogerModule);
 Game.register({ name: "john"  });
 Game.register({ name: "meaty" });
 

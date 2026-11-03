@@ -1,5 +1,5 @@
 /* ============================================================
-   config.js — Configuración general y posicionamiento
+   config.js — Configuración general, mapa de conexiones y Roger
    ============================================================ */
 const CONFIG = {
   title: "Unas Cuantas Noches con Roger",
@@ -39,7 +39,31 @@ const CONFIG = {
     meaty: { name: "Meaty", image: "assets/characters/meaty.png" },
   },
 
-  // Coordenadas iniciales por escenario (% X, % Y, escala, visibilidad)
+  // Grafo de conexiones entre habitaciones
+  mapGraph: {
+    "CAM 01": ["CAM 02", "CAM 04"],
+    "CAM 02": ["CAM 01", "CAM 03", "CAM 05"],
+    "CAM 03": ["CAM 02", "CAM 04", "office"],
+    "CAM 04": ["CAM 01", "CAM 03", "CAM 05", "office"],
+    "CAM 05": ["CAM 02", "CAM 04"],
+    "office": ["CAM 03", "CAM 04"]
+  },
+
+  // Habitaciones bloqueadas por otros animatrónicos (preparado para Meaty en Etapa 4)
+  blockedRooms: [],
+
+  // Configuración de Roger
+  roger: {
+    enabled: true,
+    startLocation: "CAM 01",
+    moveInterval: 5.0,            // Intervalo de comprobación en segundos
+    baseProbability: 0.15,        // Probabilidad base (3/20)
+    watchedProbability: 0.05,     // Menor probabilidad si el jugador está observando su cámara activa
+    unwatchedProbability: 0.25,   // Mayor probabilidad cuando no está siendo vigilado
+    guitarCooldownDuration: 15.0, // Tiempo de enfriamiento de la guitarra en segundos
+  },
+
+  // Coordenadas de apariciones (% X, % Y, escala, visibilidad)
   characterPositions: {
     office: {
       roger: { x: 50, y: 50, scale: 1.0, visible: false },
@@ -74,7 +98,7 @@ const CONFIG = {
   },
 
   tools: [
-    { id: "guitar", label: "Guitarra",        owner: "roger", enabled: false, active: false },
+    { id: "guitar", label: "Guitarra",        owner: "roger", enabled: true,  active: false },
     { id: "power",  label: "Electricidad",    owner: "john",  enabled: true,  active: true  },
     { id: "meaty",  label: "Reparar a Meaty", owner: "meaty", enabled: false, active: false },
   ],

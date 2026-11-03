@@ -125,7 +125,34 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 #cam-buttons .btn{font-family:var(--mono);min-width:96px}
 #cam-buttons .btn.active{border-color:var(--candle);color:var(--candle);background:#2a2013}
 
+/* BOTÓN ESPECIAL DE GUITARRA EN CAM 05 */
+#btn-guitar-cam5{
+  position:absolute;
+  right:20px;
+  bottom:20px;
+  z-index:25;
+  font-family:var(--mono);
+  font-size:15px;
+  padding:10px 18px;
+  background:var(--stone2);
+  color:var(--candle);
+  border:2px solid var(--candle);
+  box-shadow:0 0 12px rgba(240,180,76,.3);
+  display:none;
+}
+#btn-guitar-cam5:hover:not(:disabled){
+  background:var(--candle);
+  color:var(--stone);
+}
+#btn-guitar-cam5.playing{
+  border-color:var(--alert);
+  color:var(--alert);
+  background:#2a0c0c;
+  animation:blink 1s infinite;
+}
+
 /* DEBUG */
-#debug-panel{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:flex;gap:8px;align-items:center;background:#000a;border:1px dashed var(--dim);padding:6px 10px;font-family:var(--mono);font-size:12px}
+#debug-panel{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#000d;border:1px dashed var(--dim);padding:8px 12px;font-family:var(--mono);font-size:12px;max-width:90%}
 #debug-panel button{font-family:var(--mono);font-size:12px;background:#111;color:var(--wax);border:1px solid var(--dim);padding:3px 8px;cursor:pointer}
+#debug-roger-info{color:var(--candle);font-weight:bold;width:100%;text-align:center;margin:4px 0}
 @media (prefers-reduced-motion:reduce){#monitor{transition:none}.noise,#rec i,#cam-flicker.on{animation:none}}
