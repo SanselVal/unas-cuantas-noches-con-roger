@@ -38,16 +38,47 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 .office-ph .ph-window{position:absolute;left:140px;top:150px;width:220px;height:260px;border:6px solid #3a2f26;background:linear-gradient(#10201c,#08110f)}
 .office-ph .ph-door{position:absolute;right:140px;top:110px;width:240px;height:380px;border:6px solid #3a2f26;background:#120e0b}
 .office-ph .ph-desk{position:absolute;left:520px;bottom:0;width:640px;height:170px;background:#2a2019;border-top:6px solid #4a3a2c}
-.char-layer{position:absolute;inset:0;pointer-events:none}
+
+/* CAPAS Y SPRITES DE PERSONAJES */
+.char-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:5}
+.char-sprite{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  max-width:none;
+  max-height:none;
+  pointer-events:none;
+  user-select:none;
+  display:none;
+}
+.char-sprite.visible{display:block}
 
 /* HUD */
 #hud-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:16px 24px;pointer-events:none;z-index:20;text-shadow:0 2px 6px #000}
 #clock{font-size:44px;color:var(--candle);min-width:140px}
 #night{font-size:20px;color:var(--dim);padding-top:14px}
+
+/* INTERRUPTOR DE ELECTRICIDAD (ON / OFF) */
 #power-box{display:flex;align-items:center;gap:10px;font-size:16px;padding-top:12px}
-#power-box .bar{width:140px;height:12px;border:1px solid var(--dim);background:#0006}
-#power-fill{display:block;height:100%;background:var(--candle);width:100%}
-#power-box.off{opacity:.45}
+#power-status{
+  font-family:var(--mono);
+  font-size:15px;
+  font-weight:bold;
+  padding:3px 10px;
+  border-radius:4px;
+  letter-spacing:1px;
+}
+#power-box.on #power-status{
+  background:var(--glass);
+  color:#a3eed6;
+  border:1px solid #468574;
+  box-shadow:0 0 8px rgba(47,93,80,.6);
+}
+#power-box.off #power-status{
+  background:var(--wine);
+  color:#ff9e9e;
+  border:1px solid var(--alert);
+  box-shadow:0 0 8px rgba(194,65,45,.6);
+}
 
 #tools-bar{position:absolute;left:24px;bottom:20px;display:flex;gap:10px;z-index:20}
 #tools-bar .btn{min-width:150px;text-align:left;line-height:1.2}

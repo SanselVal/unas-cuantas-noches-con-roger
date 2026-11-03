@@ -25,7 +25,7 @@
           <div class="ph-window"></div><div class="ph-door"></div><div class="ph-desk"></div>
           <span class="ph-label">OFICINA</span>
         </div>
-        <img id="office-img" alt="">
+        <img id="office-img" alt="Oficina">
         <div id="layer-office" class="char-layer"></div>
       </div>
     </div>
@@ -33,7 +33,10 @@
     <div id="hud-top">
       <div id="clock">12 AM</div>
       <div id="night">Noche 1</div>
-      <div id="power-box"><span>Energía</span><div class="bar"><i id="power-fill"></i></div><b id="power-txt">100%</b></div>
+      <div id="power-box" class="on">
+        <span>Electricidad</span>
+        <b id="power-status">ON</b>
+      </div>
     </div>
 
     <div id="tools-bar"></div>
@@ -55,6 +58,7 @@
       <button data-act="win">Forzar 6 AM</button>
       <button data-act="lose">Forzar derrota</button>
       <button data-act="x10">Velocidad ×10</button>
+      <button data-act="toggle-power">Toggle Elec</button>
     </div>
   </section>
 
