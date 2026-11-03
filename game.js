@@ -1,6 +1,6 @@
 /* ============================================================
-   game.js — Etapa 3: Implementación de John, mecánica de oscuridad,
-   retroalimentación visual y compatibilidad para Meaty.
+   game.js — Etapa 4: Implementación completa de Meaty, reparación
+   por etapas, mapa esquemático, victorias diferenciadas y depuración.
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -38,6 +38,18 @@ const AudioSystem = {
   },
   johnSafe() {
     console.log("[AUDIO HOOK] John: Sonido metálico lejano. Zona segura.");
+  },
+  meatyRepairing() {
+    console.log("[AUDIO HOOK] Meaty: Ajustando engranajes y soldadura...");
+  },
+  meatyRepaired() {
+    console.log("[AUDIO HOOK] Meaty: Reparación completada. Sistema operativo.");
+  },
+  meatyDeployed(room) {
+    console.log(`[AUDIO HOOK] Meaty: Desplegado con éxito en ${room}.`);
+  },
+  meatyDestroyed() {
+    console.log("[AUDIO HOOK] Meaty: Chasis destruido por John. Regresando a la oficina averiado.");
   }
 };
 
@@ -71,7 +83,6 @@ function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []
 /* ---------- Interfaz de Comunicación de Módulos (John / Meaty) ---------- */
 const ModuleBridge = {
   onJohnEnteredRoom(room) {
-    // Se ejecutará cuando Meaty esté implementado en la Etapa 4
     if (window.MeatyModule && typeof window.MeatyModule.checkJohnDestruction === "function") {
       window.MeatyModule.checkJohnDestruction(room);
     }
@@ -97,13 +108,14 @@ const Game = {
       hourIndex: 0,
       electricityOn: CONFIG.electricity.defaultOn,
       monitorOpen: false,
+      meatyPanelOpen: false,
       camera: 0,
       timeScale: CONFIG.debug.timeScale,
       over: false,
       tools: {
         guitar: { enabled: CONFIG.tools.find(t=>t.id==="guitar")?.enabled || true, active: false },
         power:  { enabled: CONFIG.tools.find(t=>t.id==="power")?.enabled || true,   active: true },
-        meaty:  { enabled: CONFIG.tools.find(t=>t.id==="meaty")?.enabled || false,  active: false },
+        meaty:  { enabled: CONFIG.tools.find(t=>t.id==="meaty")?.enabled || true,   active: false },
       }
     };
   },
@@ -125,6 +137,7 @@ const Game = {
     UI.resetCharacterSprites();
     this.modules.forEach(m => m.reset && m.reset(this));
     UI.setMonitor(false);
+    UI.setMeatyPanel(false);
     UI.setCamera(0, true);
     UI.refreshElectricityUI();
     UI.refreshToolsUI();
@@ -156,7 +169,6 @@ const Game = {
     this.state.tools.power.active = this.state.electricityOn;
     UI.refreshElectricityUI();
 
-    // Notificar a John el cambio de luz
     if (window.JohnModule) {
       window.JohnModule.onElectricityChanged(this.state.electricityOn, this);
     }
@@ -167,18 +179,29 @@ const Game = {
     this.setElectricity(!this.state.electricityOn);
   },
 
-  win()  { this.end(true,  "Son las 6 AM", "Amanece. Sobreviviste a la noche."); },
-  lose(reason = "No lo lograste.") { this.end(false, "Fin de la jornada", reason); },
+  win() {
+    const repaired = window.MeatyModule ? window.MeatyModule.repairedAtLeastOnce : false;
+    if (repaired) {
+      this.end(true, "Victoria Laboral", "Amanece. Sobreviviste a la noche y cumpliste con la reparación de Meaty. Recibes tu sueldo completo.", "labor-win");
+    } else {
+      this.end(true, "Victoria Alternativa", "Sobreviviste a las 6 AM sin reparar a Meaty. Has logrado sobrevivir, pero no recibes sueldo por incumplir el mantenimiento.", "alt-win");
+    }
+  },
 
-  end(won, title, text) {
+  lose(reason = "No lo lograste.") {
+    this.end(false, "Fin de la jornada", reason, "lose");
+  },
+
+  end(won, title, text, styleClass = "win") {
     if (this.state.over) return;
     this.state.over = true;
     this.running = false;
     UI.setMonitor(false);
+    UI.setMeatyPanel(false);
     $("#end-title").textContent = title;
     $("#end-text").textContent = text;
-    $("#screen-end").className = "screen active " + (won ? "win" : "lose");
-    UI.show("end", won ? "win" : "lose");
+    $("#screen-end").className = `screen active ${styleClass}`;
+    UI.show("end");
   },
 };
 
@@ -230,6 +253,7 @@ const UI = {
     });
 
     this.buildToolsUI();
+    this.buildSchematicMap();
 
     $("#btn-start").onclick = () => Game.start();
     $("#btn-retry").onclick = () => UI.show("menu");
@@ -239,8 +263,32 @@ const UI = {
       if (window.RogerModule) window.RogerModule.activateGuitar();
     };
 
+    $("#btn-close-meaty").onclick = () => this.setMeatyPanel(false);
+
+    // Eventos de mantener pulsado para reparación
+    const holdBtn = $("#btn-hold-repair");
+    const startRepair = (e) => {
+      e.preventDefault();
+      if (window.MeatyModule) window.MeatyModule.isRepairing = true;
+    };
+    const stopRepair = () => {
+      if (window.MeatyModule) window.MeatyModule.isRepairing = false;
+    };
+
+    holdBtn.addEventListener("mousedown", startRepair);
+    holdBtn.addEventListener("mouseup", stopRepair);
+    holdBtn.addEventListener("mouseleave", stopRepair);
+    holdBtn.addEventListener("touchstart", startRepair);
+    holdBtn.addEventListener("touchend", stopRepair);
+
+    $("#btn-recall-meaty").onclick = () => {
+      if (window.MeatyModule) window.MeatyModule.recallToOffice();
+    };
+
     addEventListener("keydown", e => {
       if (!Game.running || Game.state.over) return;
+      if (Game.state.meatyPanelOpen) return; // Inhabilita atajos mientras se repara/despliega
+
       if (e.code === "Space") {
         e.preventDefault();
         this.setMonitor(!Game.state.monitorOpen);
@@ -255,6 +303,7 @@ const UI = {
     });
 
     $("#screen-game").addEventListener("mousemove", e => {
+      if (!Game.running || Game.state.over || Game.state.meatyPanelOpen) return;
       const r = $("#stage").getBoundingClientRect();
       const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
       this.targetX = -(CONFIG.office.worldWidth - CONFIG.resolution.w) * ratio;
@@ -273,21 +322,16 @@ const UI = {
           s.timeScale = s.timeScale === 10 ? 1 : 10;
           e.target.textContent = "Velocidad ×" + (s.timeScale === 10 ? "1" : "10");
         }
-        if (a === "toggle-power") {
-          Game.toggleElectricity();
-        }
-        if (a === "force-roger-step") {
-          if (window.RogerModule) window.RogerModule.step(Game);
-        }
-        if (a === "reset-roger") {
-          if (window.RogerModule) window.RogerModule.reset(Game);
-        }
-        if (a === "force-john-step") {
-          if (window.JohnModule) window.JohnModule.step(Game);
-        }
-        if (a === "reset-john") {
-          if (window.JohnModule) window.JohnModule.reset(Game);
-        }
+        if (a === "toggle-power") Game.toggleElectricity();
+        if (a === "force-roger-step" && window.RogerModule) window.RogerModule.step(Game);
+        if (a === "reset-roger" && window.RogerModule) window.RogerModule.reset(Game);
+        if (a === "force-john-step" && window.JohnModule) window.JohnModule.step(Game);
+        if (a === "reset-john" && window.JohnModule) window.JohnModule.reset(Game);
+        
+        if (a === "force-meaty-repair" && window.MeatyModule) window.MeatyModule.forceCompleteRepair(Game);
+        if (a === "deplete-meaty-uses" && window.MeatyModule) window.MeatyModule.depleteUses(Game);
+        if (a === "force-meaty-destroy" && window.MeatyModule) window.MeatyModule.forceDestroy(Game);
+        if (a === "reset-meaty" && window.MeatyModule) window.MeatyModule.reset(Game);
       };
     }
 
@@ -296,6 +340,24 @@ const UI = {
       $("#office-world").style.transform = `translateX(${UI.worldX.toFixed(1)}px)`;
       requestAnimationFrame(pan);
     })();
+  },
+
+  buildSchematicMap() {
+    const grid = $("#schematic-map");
+    grid.innerHTML = "";
+    CONFIG.meaty.deployableRooms.forEach(roomId => {
+      const camObj = CONFIG.cameras.find(c => c.id === roomId);
+      const node = document.createElement("div");
+      node.className = "map-node";
+      node.dataset.room = roomId;
+      node.innerHTML = `
+        <div class="map-node-title">${roomId}</div>
+        <div class="map-node-status">${camObj ? camObj.name : ""} - [Libre]</div>`;
+      node.onclick = () => {
+        if (window.MeatyModule) window.MeatyModule.deployToRoom(roomId);
+      };
+      grid.appendChild(node);
+    });
   },
 
   setupCharacterSprites(container, locationId) {
@@ -362,6 +424,9 @@ const UI = {
           const cam5Index = CONFIG.cameras.findIndex(c => c.id === "CAM 05");
           if (cam5Index !== -1) this.setCamera(cam5Index);
         }
+        if (t.id === "meaty") {
+          this.setMeatyPanel(true);
+        }
       };
       bar.appendChild(b);
     });
@@ -382,6 +447,74 @@ const UI = {
     });
   },
 
+  refreshMeatyUI() {
+    if (!window.MeatyModule) return;
+    const m = window.MeatyModule;
+
+    // Actualización de barras de progreso de reparación
+    for (let i = 0; i < 3; i++) {
+      const fill = $("#fill-prog-" + i);
+      const lbl = $("#lbl-prog-" + i);
+      if (fill && lbl) {
+        const pct = Math.round(m.repairProgress[i]);
+        fill.style.width = pct + "%";
+        lbl.textContent = pct + "%";
+        fill.classList.toggle("completed", pct >= 100);
+      }
+    }
+
+    // Botón de reparar
+    const holdBtn = $("#btn-hold-repair");
+    if (holdBtn) {
+      if (m.state === "REPAIRED" || m.state === "DEPLOYED") {
+        holdBtn.disabled = true;
+        holdBtn.textContent = "SISTEMA COMPLETAMENTE REPARADO";
+      } else {
+        holdBtn.disabled = false;
+        holdBtn.textContent = m.isRepairing ? "REPARANDO..." : "MANTENER PARA REPARAR";
+      }
+    }
+
+    // Usos restantes
+    $("#lbl-meaty-uses").textContent = m.usesLeft;
+
+    // Actualizar nodos del mapa esquemático
+    const nodes = document.querySelectorAll("#schematic-map .map-node");
+    nodes.forEach(node => {
+      const roomId = node.dataset.room;
+      const camObj = CONFIG.cameras.find(c => c.id === roomId);
+      const roomName = camObj ? camObj.name : "";
+      const isOccupiedByMeaty = (m.currentLocation === roomId);
+      const rogerHere = (window.RogerModule && window.RogerModule.currentLocation === roomId);
+      const johnHere = (window.JohnModule && window.JohnModule.currentLocation === roomId);
+
+      node.classList.toggle("occupied", isOccupiedByMeaty);
+      node.classList.toggle("disabled", m.state !== "REPAIRED" || m.usesLeft <= 0 || rogerHere || johnHere);
+
+      const statusEl = node.querySelector(".map-node-status");
+      if (isOccupiedByMeaty) {
+        statusEl.textContent = `${roomName} - [DESPLEGADO]`;
+      } else if (rogerHere || johnHere) {
+        statusEl.textContent = `${roomName} - [OCUPADO POR ANIMATRÓNICO]`;
+      } else {
+        statusEl.textContent = `${roomName} - [Libre]`;
+      }
+    });
+
+    if (Game.state && Game.state.tools.meaty) {
+      Game.state.tools.meaty.active = (m.state === "DEPLOYED" || m.state === "REPAIRED");
+      this.refreshToolsUI();
+    }
+  },
+
+  setMeatyPanel(open) {
+    if (!Game.state) return;
+    Game.state.meatyPanelOpen = open;
+    if (open) this.setMonitor(false); // Cierra monitor al abrir panel
+    $("#meaty-panel").classList.toggle("open", open);
+    this.refreshMeatyUI();
+  },
+
   refreshGuitarUI() {
     const gBtn = $("#btn-guitar-cam5");
     if (!gBtn || !window.RogerModule) return;
@@ -390,7 +523,7 @@ const UI = {
     const state = window.RogerModule.guitarState;
     const cooldown = Math.ceil(window.RogerModule.guitarCooldownTimer);
 
-    if (isCam5 && Game.state.electricityOn) {
+    if (isCam5 && Game.state.electricityOn && !Game.state.meatyPanelOpen) {
       gBtn.style.display = "block";
       if (state === "READY") {
         gBtn.disabled = false;
@@ -462,6 +595,7 @@ const UI = {
   },
 
   setMonitor(open) {
+    if (open && Game.state.meatyPanelOpen) this.setMeatyPanel(false);
     Game.state.monitorOpen = open;
     $("#monitor").classList.toggle("open", open);
     $("#monitor-toggle").textContent = open ? "▼ Cerrar monitor" : "▲ Abrir monitor";
@@ -500,6 +634,13 @@ const UI = {
       const j = window.JohnModule;
       const t = j.stateTimer > 0 ? ` (${j.stateTimer.toFixed(1)}s)` : "";
       johnDbg.textContent = `John: ${j.currentLocation} | Estado: ${j.state} ${t} | Zona Peligrosa: ${j.inDangerZone ? "SÍ" : "NO"}`;
+    }
+
+    const meatyDbg = $("#debug-meaty-info");
+    if (meatyDbg && window.MeatyModule) {
+      const m = window.MeatyModule;
+      const bRooms = CONFIG.blockedRooms.join(",") || "Ninguna";
+      meatyDbg.textContent = `Meaty: ${m.currentLocation} | Estado: ${m.state} | Fase: ${m.currentStageIndex + 1}/3 | Usos: ${m.usesLeft} | Bloqueo: ${bRooms} | Reparado1vez: ${m.repairedAtLeastOnce}`;
     }
   },
 
@@ -638,7 +779,7 @@ const RogerModule = {
 const JohnModule = {
   name: "john",
   currentLocation: "CAM 02",
-  state: "MOVING", // "MOVING", "AT_WINDOW", "SEARCHING", "RETREATING"
+  state: "MOVING",
   timer: 0,
   stateTimer: 0,
   inDangerZone: false,
@@ -677,14 +818,12 @@ const JohnModule = {
     } else if (this.state === "AT_WINDOW" || this.state === "SEARCHING") {
       this.stateTimer += dt;
       
-      // Si la luz sigue encendida tras el margen de gracia, John detecta al jugador y ataca
       if (game.state.electricityOn) {
         if (this.stateTimer >= CONFIG.john.detectionGraceTime) {
           game.lose("John te detectó desde la ventana de la oficina.");
           return;
         }
       } else {
-        // Con luz apagada, realiza la fase de búsqueda nocturna
         if (this.state !== "SEARCHING") {
           this.state = "SEARCHING";
           AudioSystem.johnSearching();
@@ -728,7 +867,6 @@ const JohnModule = {
       this.currentLocation = nextRoom;
       this.updateVisuals();
 
-      // Notificar a la interfaz de comunicación para Meaty
       ModuleBridge.onJohnEnteredRoom(this.currentLocation);
 
       if (this.currentLocation === "office") {
@@ -767,7 +905,6 @@ const JohnModule = {
     this.inDangerZone = false;
     UI.setCharacterPosition("office", "john", { visible: false });
     
-    // John se retira mediante el grafo (regresa a CAM 03)
     this.currentLocation = "CAM 03";
     this.state = "MOVING";
     this.timer = 0;
@@ -781,7 +918,6 @@ const JohnModule = {
   onElectricityChanged(isOn, game) {
     if (game.state.over) return;
 
-    // Si el jugador enciende la luz mientras John sigue en la zona peligrosa, pierde de inmediato
     if (isOn && this.inDangerZone) {
       game.lose("Encendiste la luz mientras John aún no se había retirado de la zona peligrosa.");
     }
@@ -798,11 +934,215 @@ const JohnModule = {
   }
 };
 
+/* ---------- Módulo de Meaty ---------- */
+const MeatyModule = {
+  name: "meaty",
+  currentLocation: "office",
+  state: "BROKEN", // "BROKEN", "REPAIRING", "REPAIRED", "DEPLOYED"
+  repairProgress: [0, 0, 0], // [% Piernas, % Brazos, % Cabeza]
+  currentStageIndex: 0,
+  isRepairing: false,
+  usesLeft: 0,
+  repairedAtLeastOnce: false,
+
+  init(game) {
+    this.resetState();
+  },
+
+  resetState() {
+    this.currentLocation = CONFIG.meaty.startLocation;
+    this.state = "BROKEN";
+    this.repairProgress = [0, 0, 0];
+    this.currentStageIndex = 0;
+    this.isRepairing = false;
+    this.usesLeft = 0;
+    this.repairedAtLeastOnce = false;
+    CONFIG.blockedRooms = [];
+  },
+
+  reset(game) {
+    UI.setCharacterPosition("office", "meaty", { visible: false });
+    CONFIG.cameras.forEach(c => UI.setCharacterPosition(c.id, "meaty", { visible: false }));
+
+    this.resetState();
+    this.updateVisuals();
+    UI.refreshMeatyUI();
+    UI.updateDebugPanels();
+  },
+
+  update(dt, game) {
+    if (game.state.over) return;
+
+    if (this.state === "BROKEN" || this.state === "REPAIRING") {
+      const idx = this.currentStageIndex;
+
+      if (this.isRepairing) {
+        if (this.state !== "REPAIRING") {
+          this.state = "REPAIRING";
+          AudioSystem.meatyRepairing();
+        }
+
+        const delta = (100 / CONFIG.meaty.repairStageDuration) * dt;
+        this.repairProgress[idx] = Math.min(100, this.repairProgress[idx] + delta);
+
+        if (this.repairProgress[idx] >= 100) {
+          if (idx < 2) {
+            this.currentStageIndex++;
+          } else {
+            // Reparación completa de las 3 fases
+            this.state = "REPAIRED";
+            this.usesLeft = CONFIG.meaty.maxUses;
+            this.repairedAtLeastOnce = true;
+            this.isRepairing = false;
+            AudioSystem.meatyRepaired();
+          }
+        }
+      } else {
+        // Pérdida progresiva si la etapa actual no está terminada y se interrumpe
+        if (this.repairProgress[idx] > 0 && this.repairProgress[idx] < 100) {
+          this.repairProgress[idx] = Math.max(0, this.repairProgress[idx] - CONFIG.meaty.decayRate * dt);
+        }
+        if (this.state === "REPAIRING") {
+          this.state = "BROKEN";
+        }
+      }
+
+      UI.refreshMeatyUI();
+      UI.updateDebugPanels();
+    }
+  },
+
+  deployToRoom(room) {
+    if (this.state !== "REPAIRED" && this.state !== "DEPLOYED") return false;
+    if (this.usesLeft <= 0) return false;
+
+    // Verificar que la habitación no esté ocupada por otro animatrónico
+    if (window.RogerModule && window.RogerModule.currentLocation === room) return false;
+    if (window.JohnModule && window.JohnModule.currentLocation === room) return false;
+
+    // Si ya estaba en otra habitación, liberar el bloqueo previo
+    this.clearBlockedRoom();
+
+    UI.setCharacterPosition(this.currentLocation, "meaty", { visible: false });
+
+    this.currentLocation = room;
+    this.state = "DEPLOYED";
+    this.usesLeft--;
+    
+    // Registrar bloqueo para Roger
+    if (!CONFIG.blockedRooms.includes(room)) {
+      CONFIG.blockedRooms.push(room);
+    }
+
+    this.updateVisuals();
+    AudioSystem.meatyDeployed(room);
+    UI.refreshMeatyUI();
+    UI.updateDebugPanels();
+    return true;
+  },
+
+  recallToOffice() {
+    if (this.state !== "DEPLOYED") return;
+    this.clearBlockedRoom();
+
+    UI.setCharacterPosition(this.currentLocation, "meaty", { visible: false });
+    this.currentLocation = "office";
+
+    if (this.usesLeft > 0) {
+      this.state = "REPAIRED";
+    } else {
+      this.state = "BROKEN";
+      this.repairProgress = [0, 0, 0];
+      this.currentStageIndex = 0;
+    }
+
+    this.updateVisuals();
+    UI.refreshMeatyUI();
+    UI.updateDebugPanels();
+  },
+
+  checkJohnDestruction(room) {
+    if (this.state === "DEPLOYED" && this.currentLocation === room) {
+      AudioSystem.meatyDestroyed();
+      this.clearBlockedRoom();
+
+      UI.setCharacterPosition(this.currentLocation, "meaty", { visible: false });
+
+      // Regresa averiado a la oficina sin usos restantes
+      this.currentLocation = "office";
+      this.state = "BROKEN";
+      this.usesLeft = 0;
+      this.repairProgress = [0, 0, 0];
+      this.currentStageIndex = 0;
+      // La variable repairedAtLeastOnce PERMANECE en true
+
+      this.updateVisuals();
+      UI.refreshMeatyUI();
+      UI.updateDebugPanels();
+    }
+  },
+
+  clearBlockedRoom() {
+    if (this.currentLocation && this.currentLocation !== "office") {
+      CONFIG.blockedRooms = CONFIG.blockedRooms.filter(r => r !== this.currentLocation);
+    }
+  },
+
+  updateVisuals() {
+    const posConfig = CONFIG.characterPositions[this.currentLocation]?.meaty || { x: 50, y: 50, scale: 1.0 };
+    UI.setCharacterPosition(this.currentLocation, "meaty", {
+      x: posConfig.x,
+      y: posConfig.y,
+      scale: posConfig.scale,
+      visible: true
+    });
+  },
+
+  forceCompleteRepair(game) {
+    this.repairProgress = [100, 100, 100];
+    this.currentStageIndex = 2;
+    this.state = "REPAIRED";
+    this.usesLeft = CONFIG.meaty.maxUses;
+    this.repairedAtLeastOnce = true;
+    this.isRepairing = false;
+    UI.refreshMeatyUI();
+    UI.updateDebugPanels();
+  },
+
+  depleteUses(game) {
+    this.usesLeft = 0;
+    if (this.state === "REPAIRED") {
+      this.state = "BROKEN";
+      this.repairProgress = [0, 0, 0];
+      this.currentStageIndex = 0;
+    }
+    UI.refreshMeatyUI();
+    UI.updateDebugPanels();
+  },
+
+  forceDestroy(game) {
+    if (this.state === "DEPLOYED") {
+      this.checkJohnDestruction(this.currentLocation);
+    } else {
+      this.state = "BROKEN";
+      this.usesLeft = 0;
+      this.repairProgress = [0, 0, 0];
+      this.currentStageIndex = 0;
+      this.clearBlockedRoom();
+      this.currentLocation = "office";
+      this.updateVisuals();
+      UI.refreshMeatyUI();
+      UI.updateDebugPanels();
+    }
+  }
+};
+
 window.RogerModule = RogerModule;
 window.JohnModule = JohnModule;
+window.MeatyModule = MeatyModule;
 
 Game.register(RogerModule);
 Game.register(JohnModule);
-Game.register({ name: "meaty" });
+Game.register(MeatyModule);
 
 window.addEventListener("DOMContentLoaded", () => Game.init());

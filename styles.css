@@ -25,7 +25,10 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
 .subtitle{color:var(--dim);font-style:italic;font-size:20px}
 .hint{color:var(--dim);font-size:14px;position:absolute;bottom:28px}
 #screen-end h2{font-size:64px;font-weight:400}
-#screen-end.win h2{color:var(--candle)} #screen-end.lose h2{color:var(--alert)}
+#screen-end.win h2{color:var(--candle)} 
+#screen-end.labor-win h2{color:#f0b44c;text-shadow:0 0 20px rgba(240,180,76,.5)}
+#screen-end.alt-win h2{color:#8a7f6a;text-shadow:0 0 20px rgba(138,127,106,.5)}
+#screen-end.lose h2{color:var(--alert)}
 #end-text{font-size:20px;color:var(--dim);max-width:640px}
 
 /* OFICINA */
@@ -188,6 +191,127 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
   background:#2a0c0c;
   animation:blink 1s infinite;
 }
+
+/* MODAL Y PANEL DE MEATY (REPARACIÓN Y DESPLIEGUE ESQUEMÁTICO) */
+#meaty-panel{
+  position:absolute;
+  inset:0;
+  z-index:45;
+  background:rgba(12,10,9,0.95);
+  display:none;
+  flex-direction:column;
+  padding:40px;
+  gap:20px;
+  color:var(--wax);
+  backdrop-filter:blur(4px);
+}
+#meaty-panel.open{display:flex}
+.meaty-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:2px solid var(--dim);
+  padding-bottom:12px;
+}
+.meaty-header h3{font-size:28px;font-weight:400;color:var(--candle)}
+
+.meaty-body{
+  display:flex;
+  flex:1;
+  gap:30px;
+}
+.meaty-section{
+  flex:1;
+  background:var(--stone2);
+  border:1px solid var(--dim);
+  padding:24px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.meaty-section h4{
+  font-family:var(--mono);
+  font-size:18px;
+  color:var(--wax);
+  border-bottom:1px solid #332d27;
+  padding-bottom:8px;
+}
+
+/* Sección de Reparación */
+.repair-stage-box{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.repair-label{font-family:var(--mono);font-size:14px;display:flex;justify-content:space-between}
+.repair-progress-bar{
+  height:16px;
+  background:#000;
+  border:1px solid var(--dim);
+  overflow:hidden;
+}
+.repair-progress-fill{
+  height:100%;
+  width:0%;
+  background:var(--candle);
+  transition:width 0.1s linear;
+}
+.repair-progress-fill.completed{background:var(--glass)}
+
+#btn-hold-repair{
+  margin-top:auto;
+  padding:16px;
+  font-size:18px;
+  font-weight:bold;
+  background:#2a1f13;
+  border:2px solid var(--candle);
+  color:var(--candle);
+  cursor:pointer;
+  user-select:none;
+}
+#btn-hold-repair:active{
+  background:var(--candle);
+  color:var(--stone);
+}
+#btn-hold-repair:disabled{
+  opacity:0.4;
+  border-color:var(--dim);
+  color:var(--dim);
+  cursor:not-allowed;
+}
+
+/* Mapa Esquemático de Despliegue */
+#schematic-map{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:repeat(3, 1fr);
+  gap:12px;
+  flex:1;
+}
+.map-node{
+  background:#14110f;
+  border:1px solid var(--dim);
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  cursor:pointer;
+  transition:all 0.2s ease;
+}
+.map-node:hover:not(.disabled){
+  border-color:var(--candle);
+  background:#261f18;
+}
+.map-node.occupied{
+  border-color:var(--alert);
+  background:#240d0d;
+}
+.map-node.disabled{
+  opacity:0.4;
+  cursor:not-allowed;
+}
+.map-node-title{font-family:var(--mono);font-size:16px;font-weight:bold}
+.map-node-status{font-family:var(--mono);font-size:12px;color:var(--dim)}
 
 /* DEBUG */
 #debug-panel{position:absolute;left:50%;top:72px;transform:translateX(-50%);z-index:60;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;background:#000d;border:1px dashed var(--dim);padding:8px 12px;font-family:var(--mono);font-size:12px;max-width:95%}

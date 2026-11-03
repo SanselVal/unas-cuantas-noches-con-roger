@@ -1,5 +1,5 @@
 /* ============================================================
-   config.js — Configuración general, grafos, Roger y John
+   config.js — Configuración general, grafos, Roger, John y Meaty
    ============================================================ */
 const CONFIG = {
   title: "Unas Cuantas Noches con Roger",
@@ -49,6 +49,7 @@ const CONFIG = {
     "office": ["CAM 03", "CAM 04"]
   },
 
+  // Lista dinámica de habitaciones bloqueadas (manejada por Meaty)
   blockedRooms: [],
 
   // Configuración de Roger
@@ -66,21 +67,31 @@ const CONFIG = {
   john: {
     enabled: true,
     startLocation: "CAM 02",
-    moveInterval: 4.0,           // Intervalo de decisión de movimiento
-    baseProbability: 0.20,       // Probabilidad base
-    watchedProbability: 0.08,    // Menor probabilidad si la cámara actual lo observa
-    unwatchedProbability: 0.35,  // Mayor probabilidad cuando no es vigilado
-    searchDuration: 8.0,         // Tiempo que busca en la ventana con luz apagada
-    detectionGraceTime: 1.5,     // Tiempo antes de atacar si la luz se mantiene encendida
-    retreatTime: 5.0,            // Tiempo que tarda en completar su retirada peligrosa
+    moveInterval: 4.0,
+    baseProbability: 0.20,
+    watchedProbability: 0.08,
+    unwatchedProbability: 0.35,
+    searchDuration: 8.0,
+    detectionGraceTime: 1.5,
+    retreatTime: 5.0,
+  },
+
+  // Configuración de Meaty
+  meaty: {
+    enabled: true,
+    startLocation: "office",
+    maxUses: 3,
+    repairStageDuration: 4.0,  // Segundos de pulsación continua por etapa (Piernas, Brazos, Cabeza)
+    decayRate: 15.0,            // % de pérdida de progreso por segundo al soltar/interrumpir
+    deployableRooms: ["CAM 01", "CAM 02", "CAM 03", "CAM 04", "CAM 05"],
   },
 
   // Coordenadas de apariciones (% X, % Y, escala, visibilidad)
   characterPositions: {
     office: {
       roger: { x: 50, y: 50, scale: 1.0, visible: false },
-      john:  { x: 18, y: 35, scale: 0.9, visible: false }, // Posición en la ventana
-      meaty: { x: 75, y: 60, scale: 1.0, visible: false },
+      john:  { x: 18, y: 35, scale: 0.9, visible: false },
+      meaty: { x: 75, y: 60, scale: 1.0, visible: true },  // Visible averiado al inicio
     },
     "CAM 01": {
       roger: { x: 45, y: 55, scale: 0.75, visible: false },
@@ -112,7 +123,7 @@ const CONFIG = {
   tools: [
     { id: "guitar", label: "Guitarra",        owner: "roger", enabled: true,  active: false },
     { id: "power",  label: "Electricidad",    owner: "john",  enabled: true,  active: true  },
-    { id: "meaty",  label: "Reparar a Meaty", owner: "meaty", enabled: false, active: false },
+    { id: "meaty",  label: "Reparar / Meaty", owner: "meaty", enabled: true,  active: false },
   ],
 
   debug: { enabled: true, timeScale: 1 },

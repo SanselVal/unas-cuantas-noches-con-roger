@@ -57,6 +57,49 @@
       <div id="cam-buttons"></div>
     </div>
 
+    <!-- MODAL DE MEATY: REPARACIÓN Y DESPLIEGUE ESQUEMÁTICO -->
+    <div id="meaty-panel">
+      <div class="meaty-header">
+        <h3>Módulo de Mantenimiento y Despliegue de Meaty</h3>
+        <button id="btn-close-meaty" class="btn">✕ Cerrar Panel</button>
+      </div>
+      <div class="meaty-body">
+        <!-- Sección de Reparación -->
+        <div class="meaty-section">
+          <h4>Estación de Reparación</h4>
+          
+          <div class="repair-stage-box">
+            <div class="repair-label"><span>Fase 1: Piernas</span><b id="lbl-prog-0">0%</b></div>
+            <div class="repair-progress-bar"><div id="fill-prog-0" class="repair-progress-fill"></div></div>
+          </div>
+          
+          <div class="repair-stage-box">
+            <div class="repair-label"><span>Fase 2: Brazos</span><b id="lbl-prog-1">0%</b></div>
+            <div class="repair-progress-bar"><div id="fill-prog-1" class="repair-progress-fill"></div></div>
+          </div>
+          
+          <div class="repair-stage-box">
+            <div class="repair-label"><span>Fase 3: Cabeza</span><b id="lbl-prog-2">0%</b></div>
+            <div class="repair-progress-bar"><div id="fill-prog-2" class="repair-progress-fill"></div></div>
+          </div>
+
+          <button id="btn-hold-repair">MANTENER PARA REPARAR</button>
+        </div>
+
+        <!-- Mapa Esquemático de Despliegue -->
+        <div class="meaty-section">
+          <h4>Mapa Esquemático de la Parroquia (<span id="lbl-meaty-uses">3</span>/3 Usos)</h4>
+          <p style="font-size:13px; color:var(--dim);">Selecciona una habitación libre para posicionar a Meaty y bloquear el paso a Roger.</p>
+          
+          <div id="schematic-map">
+            <!-- Nodos inyectados por JavaScript -->
+          </div>
+          
+          <button id="btn-recall-meaty" class="btn" style="margin-top:auto;">Retirar Meaty a la Oficina</button>
+        </div>
+      </div>
+    </div>
+
     <div id="debug-panel" hidden>
       <b>DEBUG</b>
       <button data-act="win">Forzar 6 AM</button>
@@ -71,6 +114,12 @@
       <div id="debug-john-info" class="debug-info-line">John: --- | Estado: --- | Búsqueda: --- | Zona Peligrosa: ---</div>
       <button data-act="force-john-step">Forzar Paso John</button>
       <button data-act="reset-john">Reset John</button>
+
+      <div id="debug-meaty-info" class="debug-info-line">Meaty: --- | Fase: --- | Usos: --- | Bloqueo: --- | Reparado1vez: ---</div>
+      <button data-act="force-meaty-repair">Completar Reparación</button>
+      <button data-act="deplete-meaty-uses">Agotar Usos</button>
+      <button data-act="force-meaty-destroy">Destruir por John</button>
+      <button data-act="reset-meaty">Reset Meaty</button>
     </div>
   </section>
 
