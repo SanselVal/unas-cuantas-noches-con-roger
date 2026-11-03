@@ -1,5 +1,5 @@
 /* ============================================================
-   config.js — Configuración general, grafos, Roger, John y Meaty
+   config.js — Configuración general, grafos y animatrónicos
    ============================================================ */
 const CONFIG = {
   title: "Unas Cuantas Noches con Roger",
@@ -91,7 +91,7 @@ const CONFIG = {
     office: {
       roger: { x: 50, y: 50, scale: 1.0, visible: false },
       john:  { x: 18, y: 35, scale: 0.9, visible: false },
-      meaty: { x: 75, y: 60, scale: 1.0, visible: true },  // Visible averiado al inicio
+      meaty: { x: 75, y: 60, scale: 1.0, visible: true },
     },
     "CAM 01": {
       roger: { x: 45, y: 55, scale: 0.75, visible: false },

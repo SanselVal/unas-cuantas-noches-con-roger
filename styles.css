@@ -192,7 +192,7 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
   animation:blink 1s infinite;
 }
 
-/* MODAL Y PANEL DE MEATY (REPARACIÓN Y DESPLIEGUE ESQUEMÁTICO) */
+/* MODAL Y PANEL DE MEATY */
 #meaty-panel{
   position:absolute;
   inset:0;
@@ -237,7 +237,6 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
   padding-bottom:8px;
 }
 
-/* Sección de Reparación */
 .repair-stage-box{
   display:flex;
   flex-direction:column;
@@ -280,7 +279,6 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:var
   cursor:not-allowed;
 }
 
-/* Mapa Esquemático de Despliegue */
 #schematic-map{
   display:grid;
   grid-template-columns:1fr 1fr;

@@ -1,6 +1,6 @@
 /* ============================================================
-   game.js — Etapa 4: Implementación completa de Meaty, reparación
-   por etapas, mapa esquemático, victorias diferenciadas y depuración.
+   game.js — FASE DE INTEGRACIÓN: Auditoría completa de Roger,
+   John, Meaty, electricidad y victorias diferenciadas.
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -180,7 +180,7 @@ const Game = {
   },
 
   win() {
-    const repaired = window.MeatyModule ? window.MeatyModule.repairedAtLeastOnce : false;
+    const repaired = window.MeatyModule ? window.MeatyModule.meatyRepairedAtLeastOnce : false;
     if (repaired) {
       this.end(true, "Victoria Laboral", "Amanece. Sobreviviste a la noche y cumpliste con la reparación de Meaty. Recibes tu sueldo completo.", "labor-win");
     } else {
@@ -196,6 +196,9 @@ const Game = {
     if (this.state.over) return;
     this.state.over = true;
     this.running = false;
+    
+    if (window.MeatyModule) window.MeatyModule.isRepairing = false;
+
     UI.setMonitor(false);
     UI.setMeatyPanel(false);
     $("#end-title").textContent = title;
@@ -257,18 +260,25 @@ const UI = {
 
     $("#btn-start").onclick = () => Game.start();
     $("#btn-retry").onclick = () => UI.show("menu");
-    $("#monitor-toggle").onclick = () => this.setMonitor(!Game.state.monitorOpen);
+    $("#monitor-toggle").onclick = () => {
+      if (window.MeatyModule && window.MeatyModule.isRepairing) return;
+      this.setMonitor(!Game.state.monitorOpen);
+    };
 
     $("#btn-guitar-cam5").onclick = () => {
+      if (window.MeatyModule && window.MeatyModule.isRepairing) return;
       if (window.RogerModule) window.RogerModule.activateGuitar();
     };
 
-    $("#btn-close-meaty").onclick = () => this.setMeatyPanel(false);
+    $("#btn-close-meaty").onclick = () => {
+      if (window.MeatyModule && window.MeatyModule.isRepairing) return;
+      this.setMeatyPanel(false);
+    };
 
-    // Eventos de mantener pulsado para reparación
     const holdBtn = $("#btn-hold-repair");
     const startRepair = (e) => {
       e.preventDefault();
+      if (!Game.running || Game.state.over) return;
       if (window.MeatyModule) window.MeatyModule.isRepairing = true;
     };
     const stopRepair = () => {
@@ -282,12 +292,13 @@ const UI = {
     holdBtn.addEventListener("touchend", stopRepair);
 
     $("#btn-recall-meaty").onclick = () => {
+      if (window.MeatyModule && window.MeatyModule.isRepairing) return;
       if (window.MeatyModule) window.MeatyModule.recallToOffice();
     };
 
     addEventListener("keydown", e => {
       if (!Game.running || Game.state.over) return;
-      if (Game.state.meatyPanelOpen) return; // Inhabilita atajos mientras se repara/despliega
+      if (Game.state.meatyPanelOpen || (window.MeatyModule && window.MeatyModule.isRepairing)) return;
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -303,7 +314,7 @@ const UI = {
     });
 
     $("#screen-game").addEventListener("mousemove", e => {
-      if (!Game.running || Game.state.over || Game.state.meatyPanelOpen) return;
+      if (!Game.running || Game.state.over || Game.state.meatyPanelOpen || (window.MeatyModule && window.MeatyModule.isRepairing)) return;
       const r = $("#stage").getBoundingClientRect();
       const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
       this.targetX = -(CONFIG.office.worldWidth - CONFIG.resolution.w) * ratio;
@@ -354,6 +365,7 @@ const UI = {
         <div class="map-node-title">${roomId}</div>
         <div class="map-node-status">${camObj ? camObj.name : ""} - [Libre]</div>`;
       node.onclick = () => {
+        if (window.MeatyModule && window.MeatyModule.isRepairing) return;
         if (window.MeatyModule) window.MeatyModule.deployToRoom(roomId);
       };
       grid.appendChild(node);
@@ -418,6 +430,7 @@ const UI = {
       b.className = "btn";
       b.id = "tool-" + t.id;
       b.onclick = () => {
+        if (window.MeatyModule && window.MeatyModule.isRepairing) return;
         if (t.id === "power") Game.toggleElectricity();
         if (t.id === "guitar") {
           this.setMonitor(true);
@@ -434,11 +447,12 @@ const UI = {
 
   refreshToolsUI() {
     if (!Game.state) return;
+    const isRepairing = window.MeatyModule ? window.MeatyModule.isRepairing : false;
     CONFIG.tools.forEach(t => {
       const b = $("#tool-" + t.id);
       if (!b) return;
       const state = Game.state.tools[t.id] || { enabled: t.enabled, active: t.active };
-      b.disabled = !state.enabled;
+      b.disabled = !state.enabled || isRepairing;
       let statusTxt = "Inactivo";
       if (!state.enabled) statusTxt = "Bloqueado";
       else if (state.active) statusTxt = "Activo";
@@ -451,7 +465,6 @@ const UI = {
     if (!window.MeatyModule) return;
     const m = window.MeatyModule;
 
-    // Actualización de barras de progreso de reparación
     for (let i = 0; i < 3; i++) {
       const fill = $("#fill-prog-" + i);
       const lbl = $("#lbl-prog-" + i);
@@ -463,7 +476,6 @@ const UI = {
       }
     }
 
-    // Botón de reparar
     const holdBtn = $("#btn-hold-repair");
     if (holdBtn) {
       if (m.state === "REPAIRED" || m.state === "DEPLOYED") {
@@ -475,10 +487,14 @@ const UI = {
       }
     }
 
-    // Usos restantes
     $("#lbl-meaty-uses").textContent = m.usesLeft;
 
-    // Actualizar nodos del mapa esquemático
+    const recallBtn = $("#btn-recall-meaty");
+    if (recallBtn) recallBtn.disabled = m.isRepairing || m.state !== "DEPLOYED";
+
+    const closeBtn = $("#btn-close-meaty");
+    if (closeBtn) closeBtn.disabled = m.isRepairing;
+
     const nodes = document.querySelectorAll("#schematic-map .map-node");
     nodes.forEach(node => {
       const roomId = node.dataset.room;
@@ -489,7 +505,7 @@ const UI = {
       const johnHere = (window.JohnModule && window.JohnModule.currentLocation === roomId);
 
       node.classList.toggle("occupied", isOccupiedByMeaty);
-      node.classList.toggle("disabled", m.state !== "REPAIRED" || m.usesLeft <= 0 || rogerHere || johnHere);
+      node.classList.toggle("disabled", m.isRepairing || m.state !== "REPAIRED" || m.usesLeft <= 0 || rogerHere || johnHere);
 
       const statusEl = node.querySelector(".map-node-status");
       if (isOccupiedByMeaty) {
@@ -509,8 +525,9 @@ const UI = {
 
   setMeatyPanel(open) {
     if (!Game.state) return;
+    if (window.MeatyModule && window.MeatyModule.isRepairing && !open) return;
     Game.state.meatyPanelOpen = open;
-    if (open) this.setMonitor(false); // Cierra monitor al abrir panel
+    if (open) this.setMonitor(false);
     $("#meaty-panel").classList.toggle("open", open);
     this.refreshMeatyUI();
   },
@@ -522,11 +539,12 @@ const UI = {
     const isCam5 = Game.state && CONFIG.cameras[Game.state.camera]?.id === "CAM 05";
     const state = window.RogerModule.guitarState;
     const cooldown = Math.ceil(window.RogerModule.guitarCooldownTimer);
+    const isRepairing = window.MeatyModule ? window.MeatyModule.isRepairing : false;
 
     if (isCam5 && Game.state.electricityOn && !Game.state.meatyPanelOpen) {
       gBtn.style.display = "block";
       if (state === "READY") {
-        gBtn.disabled = false;
+        gBtn.disabled = isRepairing;
         gBtn.className = "btn";
         gBtn.textContent = "Tocar Guitarra";
       } else if (state === "PLAYING") {
@@ -595,6 +613,7 @@ const UI = {
   },
 
   setMonitor(open) {
+    if (window.MeatyModule && window.MeatyModule.isRepairing) return;
     if (open && Game.state.meatyPanelOpen) this.setMeatyPanel(false);
     Game.state.monitorOpen = open;
     $("#monitor").classList.toggle("open", open);
@@ -604,6 +623,7 @@ const UI = {
 
   setCamera(i, silent) {
     if (!Game.state.electricityOn) return;
+    if (window.MeatyModule && window.MeatyModule.isRepairing) return;
     Game.state.camera = i;
     this.rooms.forEach((r, k) => r.classList.toggle("active", k === i));
     document.querySelectorAll("#cam-buttons .btn").forEach((b, k) => b.classList.toggle("active", k === i));
@@ -640,7 +660,7 @@ const UI = {
     if (meatyDbg && window.MeatyModule) {
       const m = window.MeatyModule;
       const bRooms = CONFIG.blockedRooms.join(",") || "Ninguna";
-      meatyDbg.textContent = `Meaty: ${m.currentLocation} | Estado: ${m.state} | Fase: ${m.currentStageIndex + 1}/3 | Usos: ${m.usesLeft} | Bloqueo: ${bRooms} | Reparado1vez: ${m.repairedAtLeastOnce}`;
+      meatyDbg.textContent = `Meaty: ${m.currentLocation} | Estado: ${m.state} | Fase: ${m.currentStageIndex + 1}/3 | Usos: ${m.usesLeft} | Bloqueo: ${bRooms} | Reparado1vez: ${m.meatyRepairedAtLeastOnce}`;
     }
   },
 
@@ -939,11 +959,19 @@ const MeatyModule = {
   name: "meaty",
   currentLocation: "office",
   state: "BROKEN", // "BROKEN", "REPAIRING", "REPAIRED", "DEPLOYED"
-  repairProgress: [0, 0, 0], // [% Piernas, % Brazos, % Cabeza]
+  repairProgress: [0, 0, 0],
   currentStageIndex: 0,
   isRepairing: false,
   usesLeft: 0,
-  repairedAtLeastOnce: false,
+  meatyRepairedAtLeastOnce: false,
+
+  get repairedAtLeastOnce() {
+    return this.meatyRepairedAtLeastOnce;
+  },
+
+  set repairedAtLeastOnce(val) {
+    this.meatyRepairedAtLeastOnce = Boolean(val);
+  },
 
   init(game) {
     this.resetState();
@@ -956,7 +984,7 @@ const MeatyModule = {
     this.currentStageIndex = 0;
     this.isRepairing = false;
     this.usesLeft = 0;
-    this.repairedAtLeastOnce = false;
+    this.meatyRepairedAtLeastOnce = false;
     CONFIG.blockedRooms = [];
   },
 
@@ -989,16 +1017,14 @@ const MeatyModule = {
           if (idx < 2) {
             this.currentStageIndex++;
           } else {
-            // Reparación completa de las 3 fases
             this.state = "REPAIRED";
             this.usesLeft = CONFIG.meaty.maxUses;
-            this.repairedAtLeastOnce = true;
+            this.meatyRepairedAtLeastOnce = true;
             this.isRepairing = false;
             AudioSystem.meatyRepaired();
           }
         }
       } else {
-        // Pérdida progresiva si la etapa actual no está terminada y se interrumpe
         if (this.repairProgress[idx] > 0 && this.repairProgress[idx] < 100) {
           this.repairProgress[idx] = Math.max(0, this.repairProgress[idx] - CONFIG.meaty.decayRate * dt);
         }
@@ -1013,14 +1039,13 @@ const MeatyModule = {
   },
 
   deployToRoom(room) {
+    if (this.isRepairing) return false;
     if (this.state !== "REPAIRED" && this.state !== "DEPLOYED") return false;
     if (this.usesLeft <= 0) return false;
 
-    // Verificar que la habitación no esté ocupada por otro animatrónico
     if (window.RogerModule && window.RogerModule.currentLocation === room) return false;
     if (window.JohnModule && window.JohnModule.currentLocation === room) return false;
 
-    // Si ya estaba en otra habitación, liberar el bloqueo previo
     this.clearBlockedRoom();
 
     UI.setCharacterPosition(this.currentLocation, "meaty", { visible: false });
@@ -1029,7 +1054,6 @@ const MeatyModule = {
     this.state = "DEPLOYED";
     this.usesLeft--;
     
-    // Registrar bloqueo para Roger
     if (!CONFIG.blockedRooms.includes(room)) {
       CONFIG.blockedRooms.push(room);
     }
@@ -1042,6 +1066,7 @@ const MeatyModule = {
   },
 
   recallToOffice() {
+    if (this.isRepairing) return;
     if (this.state !== "DEPLOYED") return;
     this.clearBlockedRoom();
 
@@ -1068,13 +1093,11 @@ const MeatyModule = {
 
       UI.setCharacterPosition(this.currentLocation, "meaty", { visible: false });
 
-      // Regresa averiado a la oficina sin usos restantes
       this.currentLocation = "office";
       this.state = "BROKEN";
       this.usesLeft = 0;
       this.repairProgress = [0, 0, 0];
       this.currentStageIndex = 0;
-      // La variable repairedAtLeastOnce PERMANECE en true
 
       this.updateVisuals();
       UI.refreshMeatyUI();
@@ -1103,7 +1126,7 @@ const MeatyModule = {
     this.currentStageIndex = 2;
     this.state = "REPAIRED";
     this.usesLeft = CONFIG.meaty.maxUses;
-    this.repairedAtLeastOnce = true;
+    this.meatyRepairedAtLeastOnce = true;
     this.isRepairing = false;
     UI.refreshMeatyUI();
     UI.updateDebugPanels();
