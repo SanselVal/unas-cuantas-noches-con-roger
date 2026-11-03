@@ -1,6 +1,5 @@
 /* ============================================================
-   game.js — Etapa 2: Implementación completa del animatrónico Roger,
-   navegación por grafos, sistema de guitarra y panel de depuración.
+   game.js — Etapa 2: Implementación validada de Roger
    ============================================================ */
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -35,12 +34,11 @@ function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []
     const node = path[path.length - 1];
 
     if (node === targetRoom) {
-      return path[1]; // Siguiente paso en la ruta óptima
+      return path[1];
     }
 
     const neighbors = mapGraph[node] || [];
     for (const neighbor of neighbors) {
-      // Regla de compatibilidad futura para Meaty: omitir salas bloqueadas excepto el destino final
       if (!visited.has(neighbor) && (!blockedRooms.includes(neighbor) || neighbor === targetRoom)) {
         visited.add(neighbor);
         queue.push([...path, neighbor]);
@@ -48,7 +46,7 @@ function getNextStepTowards(currentRoom, targetRoom, mapGraph, blockedRooms = []
     }
   }
 
-  return currentRoom; // Si no hay camino libre disponible, permanece en su sala
+  return currentRoom;
 }
 
 /* ---------- Núcleo del Juego ---------- */
@@ -203,7 +201,6 @@ const UI = {
     $("#btn-retry").onclick = () => UI.show("menu");
     $("#monitor-toggle").onclick = () => this.setMonitor(!Game.state.monitorOpen);
 
-    // Evento para el botón de la guitarra en CAM 05
     $("#btn-guitar-cam5").onclick = () => {
       if (RogerModule) RogerModule.activateGuitar();
     };
@@ -448,7 +445,7 @@ const RogerModule = {
   name: "roger",
   currentLocation: "CAM 01",
   timer: 0,
-  guitarState: "READY", // "READY", "PLAYING", "COOLDOWN"
+  guitarState: "READY",
   guitarCooldownTimer: 0,
 
   init(game) {
@@ -463,7 +460,6 @@ const RogerModule = {
   },
 
   reset(game) {
-    // Ocultar sprite previo en todas las salas
     UI.setCharacterPosition("office", "roger", { visible: false });
     CONFIG.cameras.forEach(c => UI.setCharacterPosition(c.id, "roger", { visible: false }));
 
@@ -476,7 +472,6 @@ const RogerModule = {
   update(dt, game) {
     if (game.state.over) return;
 
-    // Enfriamiento de la guitarra
     if (this.guitarState === "COOLDOWN") {
       this.guitarCooldownTimer -= dt;
       if (this.guitarCooldownTimer <= 0) {
@@ -487,7 +482,6 @@ const RogerModule = {
       UI.updateDebugRoger();
     }
 
-    // Intervalo de decisión de movimiento
     this.timer += dt;
     if (this.timer >= CONFIG.roger.moveInterval) {
       this.timer = 0;
@@ -507,7 +501,6 @@ const RogerModule = {
   evaluateMovement(game) {
     if (game.state.over) return;
 
-    // Menor probabilidad si la cámara activa enfoca directamente la sala donde está Roger
     const currentCamId = CONFIG.cameras[game.state.camera]?.id;
     const isWatched = game.state.monitorOpen && (currentCamId === this.currentLocation);
     const prob = isWatched ? CONFIG.roger.watchedProbability : CONFIG.roger.unwatchedProbability;
@@ -520,20 +513,24 @@ const RogerModule = {
   step(game) {
     if (game.state.over) return;
 
-    // Determinación del objetivo actual
+    // Caso de borde: si ya está en CAM 05 y la guitarra está sonando, la apaga inmediatamente
+    if (this.currentLocation === "CAM 05" && this.guitarState === "PLAYING") {
+      this.guitarState = "COOLDOWN";
+      this.guitarCooldownTimer = CONFIG.roger.guitarCooldownDuration;
+      AudioSystem.stopGuitar();
+      UI.refreshGuitarUI();
+      UI.updateDebugRoger();
+      return;
+    }
+
     const targetRoom = (this.guitarState === "PLAYING") ? "CAM 05" : "office";
     const nextRoom = getNextStepTowards(this.currentLocation, targetRoom, CONFIG.mapGraph, CONFIG.blockedRooms);
 
     if (nextRoom && nextRoom !== this.currentLocation) {
-      // Ocultar de la ubicación anterior
       UI.setCharacterPosition(this.currentLocation, "roger", { visible: false });
-
       this.currentLocation = nextRoom;
-
-      // Mostrar en la nueva ubicación
       this.updateVisuals();
 
-      // Si llega a CAM 05 mientras suena la guitarra, la apaga
       if (this.currentLocation === "CAM 05" && this.guitarState === "PLAYING") {
         this.guitarState = "COOLDOWN";
         this.guitarCooldownTimer = CONFIG.roger.guitarCooldownDuration;
@@ -541,7 +538,6 @@ const RogerModule = {
         UI.refreshGuitarUI();
       }
 
-      // Si llega a la oficina, provoca la derrota
       if (this.currentLocation === "office") {
         game.lose("Roger ha entrado en la oficina.");
       }
